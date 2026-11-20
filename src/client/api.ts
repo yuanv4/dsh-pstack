@@ -10,7 +10,7 @@ export interface SettingsSnapshot {
   droppedRoles: string[]
 }
 
-type CatalogEvent = 'llm/adapters-updated' | 'settings/document-updated' | 'credentials/reference-updated'
+type CatalogEvent = 'llm/adapters-updated' | 'llm/models-updated' | 'settings/document-updated' | 'credentials/reference-updated'
 
 export interface CatalogEventContext {
   remote: { $on(event: CatalogEvent, listener: () => void): () => void }
@@ -21,6 +21,7 @@ export interface CatalogEventContext {
 export function listenForCatalogChanges(ctx: CatalogEventContext, listener: () => void): () => void {
   const disposers = [
     ctx.remote.$on('llm/adapters-updated', listener),
+    ctx.remote.$on('llm/models-updated', listener),
     ctx.remote.$on('settings/document-updated', listener),
     ctx.remote.$on('credentials/reference-updated', listener),
     ctx.on('connection/reset', listener),

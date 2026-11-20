@@ -12,13 +12,13 @@ registerHooks({
     return next(specifier, specifier.startsWith('@deepseek-ai/') ? { ...context, parentURL: anchor } : context)
   },
 })
-const target = process.argv[2] ? pathToFileURL(process.argv[2]) : new URL('./lib/index.js', import.meta.url)
+const target = process.argv[2] ? pathToFileURL(process.argv[2]) : new URL('./src/index.ts', import.meta.url)
 const { apply } = await import(target.href)
 const tools = new Map()
 const model = 'gpt-6.1-sol'
 let signedIn = true
 const llm = {
-  listProviders: () => [{ id: 'codex', name: 'ChatGPT' }, { id: 'unconfigured', name: 'Unconfigured' }],
+  listProviders: () => [{ id: 'codex', name: 'ChatGPT' }, { id: 'private-proxy', name: 'Private Proxy' }],
   listModels: async id => id === 'codex' && !signedIn ? [] : [{ id: model, name: 'Sol' }],
   resolveModelInfo: async () => ({ id: model, name: 'Sol', reasoning: { efforts: [{ id: 'high', name: 'High' }] } }),
 }
@@ -34,7 +34,9 @@ try {
   apply({ tools: { register: tool => tools.set(tool.name, tool) }, skills: { registerProvider() {} }, get: name => ({ llm, subagents })[name], inject() {}, on() {} })
   const run = (name, args = {}) => tools.get(name).execute(args, { agent: { id: 'test-parent' }, signal: new AbortController().signal })
   const catalog = await run('pstack_catalog')
-  assert.deepEqual(catalog.routes.map(r => [r.provider, r.model, r.source, r.efforts[0].id]), [['codex', model, 'oauth', 'high']])
+  assert.deepEqual(catalog.routes.map(r => [r.provider, r.model, r.efforts[0].id]), [
+    ['codex', model, 'high'], ['private-proxy', model, 'high'],
+  ])
   const overlayFor = reasoningEffort => ({ version: 1, roles: { feature: { inherit: false, routes: [{ provider: 'codex', model, reasoningEffort }] } } })
   await assert.rejects(run('pstack_overlay_write', { overlay: overlayFor('low') }), /not accepted/)
   const { overlay } = await run('pstack_overlay_write', { overlay: overlayFor('high') })
@@ -48,9 +50,9 @@ try {
   assert.equal(requests[1].delivery, 'caller')
   assert.equal('agentOptions' in requests[1], false)
   signedIn = false
-  assert.equal((await run('pstack_catalog')).selectableCount, 0)
-  await assert.rejects(run('pstack_overlay_write', { overlay: overlayFor('high') }), /not a logged-in live route/)
-  console.log('PASS: Codex discovery, effort validation, save/read, logout, and unchanged filtering for other routes')
+  assert.deepEqual((await run('pstack_catalog')).routes.map(r => r.provider), ['private-proxy'])
+  await assert.rejects(run('pstack_overlay_write', { overlay: overlayFor('high') }), /not listed by DSH/)
+  console.log('PASS: Codex discovery, effort validation, save/read, Codex removal, and independent proxy discovery')
 } finally {
   if (previousHome === undefined) delete process.env.DSH_HOME
   else process.env.DSH_HOME = previousHome

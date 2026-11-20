@@ -30,13 +30,8 @@ export interface ToolDefinition {
   execute(args: Record<string, unknown>, exec: { signal?: AbortSignal; agent?: Agent }): Promise<unknown>
 }
 
-export interface ToolHost {
-  llm?: CatalogHost['llm']
-  credentials?: CatalogHost['credentials']
-  settings?: CatalogHost['settings']
+export interface ToolHost extends CatalogHost {
   subagents?: Pick<SubagentRuntime, 'startActivation'>
-  dshHome?: string
-  env?: NodeJS.ProcessEnv
   spawnProvider?: string
 }
 
@@ -48,16 +43,10 @@ export function catalogTool(host: ToolHost): ToolDefinition {
   return {
     name: TOOL_CATALOG,
     description:
-      'List live DSH LLM routes pstack may use: registered adapters with a logged-in API key, plus OAuth store routes (dsh-oauth-login, dsh-antigravity-oauth) that are already signed in. Never a vendor catalog. Secrets are omitted.',
+      'List the provider/model pairs DSH exposes for pstack, along with their supported reasoning efforts.',
     parameters: {},
     async execute(_args, exec) {
-      return buildCatalog({
-        llm: host.llm,
-        credentials: host.credentials,
-        settings: host.settings,
-        dshHome: host.dshHome,
-        env: host.env,
-      }, exec.signal)
+      return buildCatalog(host, exec.signal)
     },
   }
 }
@@ -94,13 +83,7 @@ export function overlayWriteTool(host: ToolHost): ToolDefinition {
       const overlay = typeof args.overlay === 'string'
         ? parseOverlay(args.overlay)
         : parseOverlay(JSON.stringify(args.overlay))
-      const catalog = await buildCatalog({
-        llm: host.llm,
-        credentials: host.credentials,
-        settings: host.settings,
-        dshHome: host.dshHome,
-        env: host.env,
-      })
+      const catalog = await buildCatalog(host)
       const errors = validateOverlayAgainstCatalog(overlay, catalog.routes)
       if (errors.length > 0) {
         throw new Error(`overlay rejected against live catalog:\n${errors.join('\n')}`)
@@ -115,7 +98,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
   return {
     name: TOOL_SPAWN,
     description:
-      'Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. Do not send model, provider, reasoning_effort, thinking, isolation, or subagent_type. Route and effort come from $DSH_HOME/pstack-dsh.json when that role is mapped to a live logged-in route; otherwise the child inherits this conversation.',
+      'Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. Do not send model, provider, reasoning_effort, thinking, isolation, or subagent_type. Route and effort come from $DSH_HOME/pstack-dsh.json when that role is mapped to a route listed by DSH; otherwise the child inherits this conversation.',
     parameters: {
       description: {
         type: 'string',

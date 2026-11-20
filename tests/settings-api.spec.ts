@@ -6,7 +6,7 @@ import { describe, it } from 'node:test'
 import { loadSettingsSnapshot, saveSettingsOverlay } from '../src/settings-api.ts'
 import { draftToOverlay, overlayToDraft } from '../src/settings-draft.ts'
 import { parseOverlay } from '../src/overlay-model.ts'
-import { OAUTH_AUTH_FILENAME, OVERLAY_FILENAME } from '../src/ids.ts'
+import { OVERLAY_FILENAME } from '../src/ids.ts'
 import { listenForCatalogChanges, type CatalogEventContext } from '../src/client/api.ts'
 
 function llmStub() {
@@ -22,7 +22,7 @@ function llmStub() {
 }
 
 describe('settings snapshot/save', () => {
-  it('loads inherit overlay and empty catalog when nothing is logged in', async () => {
+  it('loads inherit overlay and empty catalog when DSH lists no models', async () => {
     const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-settings-empty-'))
     const snapshot = await loadSettingsSnapshot({
       dshHome: home,
@@ -33,24 +33,18 @@ describe('settings snapshot/save', () => {
         async resolveModelInfo() { return { id: 'x', name: 'x' } },
       },
     })
-    assert.equal(snapshot.catalog.selectableCount, 0)
+    assert.equal(snapshot.catalog.routes.length, 0)
     assert.equal(snapshot.overlay.roles.feature?.inherit, true)
     assert.equal(snapshot.missing, true)
-    assert.equal(snapshot.catalog.recommendOauthLogin, true)
     assert.equal(snapshot.path.endsWith(OVERLAY_FILENAME), true)
   })
 
-  it('writes the same overlay file spawn reads, logged-in routes only', async () => {
+  it('writes the same overlay file spawn reads, for a DSH-listed route', async () => {
     const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-settings-save-'))
     const host = {
       dshHome: home,
       env: {},
       llm: llmStub(),
-      credentials: {
-        async describe(ref: string) {
-          return { configured: ref === 'DEEPSEEK_API_KEY' }
-        },
-      },
     }
     const saved = await saveSettingsOverlay(host, {
       version: 1,
@@ -75,9 +69,6 @@ describe('settings snapshot/save', () => {
       dshHome: home,
       env: {},
       llm: llmStub(),
-      credentials: {
-        async describe(ref: string) { return { configured: ref === 'DEEPSEEK_API_KEY' } },
-      },
     }
     const original = parseOverlay(JSON.stringify({
       version: 1,
@@ -114,22 +105,17 @@ describe('settings snapshot/save', () => {
       dshHome: home,
       env: {},
       llm: llmStub(),
-      credentials: {
-        async describe(ref: string) {
-          return { configured: ref === 'DEEPSEEK_API_KEY' }
-        },
-      },
     }, {
       version: 1,
       roles: {
         feature: { inherit: false, routes: [{ provider: 'openai', model: 'gpt-4' }] },
       },
-    }), /not a logged-in live route/)
+    }), /not listed by DSH/)
   })
 
-  it('sees login, model additions and logout on the next request, including save validation', async () => {
+  it('sees DSH model additions and removals on the next request, including save validation', async () => {
     const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-settings-login-'))
-    const models = [{ id: 'glm-5.3-flash', name: 'GLM' }]
+    const models: { id: string; name: string }[] = []
     const host = {
       dshHome: home,
       env: {},
@@ -139,30 +125,30 @@ describe('settings snapshot/save', () => {
         async resolveModelInfo(_provider: string, model: string) { return { id: model, name: model } },
       },
     }
-    assert.equal((await loadSettingsSnapshot(host)).catalog.selectableCount, 0)
-    await writeFile(join(home, OAUTH_AUTH_FILENAME), JSON.stringify({ credentials: { 'zai-coding-cn': {} } }))
-    const loggedIn = await loadSettingsSnapshot(host)
-    assert.deepEqual(loggedIn.catalog.routes.map(route => route.model), ['glm-5.3-flash'])
+    assert.equal((await loadSettingsSnapshot(host)).catalog.routes.length, 0)
+    models.push({ id: 'glm-5.3-flash', name: 'GLM' })
+    const available = await loadSettingsSnapshot(host)
+    assert.deepEqual(available.catalog.routes.map(route => route.model), ['glm-5.3-flash'])
 
     const saved = await saveSettingsOverlay(host, {
       version: 1,
       roles: { feature: { inherit: false, routes: [{ provider: 'pi-zai-coding-cn', model: 'glm-5.3-flash' }] } },
     })
     models.push({ id: 'new-live-model', name: 'New live model' })
-    assert.equal((await loadSettingsSnapshot(host)).catalog.selectableCount, 2)
+    assert.equal((await loadSettingsSnapshot(host)).catalog.routes.length, 2)
 
     const savedBytes = await readFile(saved.path, 'utf8')
-    await writeFile(join(home, OAUTH_AUTH_FILENAME), JSON.stringify({ credentials: {} }))
-    const loggedOut = await loadSettingsSnapshot(host)
-    assert.equal(loggedOut.catalog.selectableCount, 0)
-    assert.deepEqual(loggedOut.droppedRoles, ['feature'])
+    models.length = 0
+    const unavailable = await loadSettingsSnapshot(host)
+    assert.equal(unavailable.catalog.routes.length, 0)
+    assert.deepEqual(unavailable.droppedRoles, ['feature'])
     assert.equal(await readFile(saved.path, 'utf8'), savedBytes)
-    await assert.rejects(() => saveSettingsOverlay(host, saved.overlay), /not a logged-in live route/)
+    await assert.rejects(() => saveSettingsOverlay(host, saved.overlay), /not listed by DSH/)
   })
 })
 
 describe('client catalog notifications', () => {
-  it('refreshes on Host login, settings, credential and reconnect events, then unsubscribes', () => {
+  it('refreshes on Host adapter, model, settings, credential and reconnect events, then unsubscribes', () => {
     const listeners = new Map<string, () => void>()
     const subscribe = (event: string, listener: () => void) => {
       listeners.set(event, listener)
@@ -171,12 +157,12 @@ describe('client catalog notifications', () => {
     const ctx: CatalogEventContext = { remote: { $on: subscribe }, on: subscribe }
     let refreshes = 0
     const stop = listenForCatalogChanges(ctx, () => { refreshes += 1 })
-    for (const event of ['llm/adapters-updated', 'settings/document-updated', 'credentials/reference-updated', 'connection/reset']) {
+    for (const event of ['llm/adapters-updated', 'llm/models-updated', 'settings/document-updated', 'credentials/reference-updated', 'connection/reset']) {
       const listener = listeners.get(event)
       assert.ok(listener, `${event} must reach the role selector`)
       listener()
     }
-    assert.equal(refreshes, 4)
+    assert.equal(refreshes, 5)
     stop()
     assert.equal(listeners.size, 0)
   })

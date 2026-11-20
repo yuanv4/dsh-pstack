@@ -38,6 +38,7 @@ function parseBool(value: string | undefined, fallback: boolean): boolean {
  * `packages/skill/skill-filesystem/README.md`.
  */
 export function parseSkillMarkdown(text: string, fallbackName: string): ParsedSkill | undefined {
+  text = text.replace(/\r\n/g, '\n')
   if (!text.startsWith('---')) return undefined
   const end = text.indexOf('\n---', 3)
   if (end < 0) return undefined

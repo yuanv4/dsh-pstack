@@ -17,10 +17,6 @@ export interface RoleDraft {
   routes: OverlayRoute[]
 }
 
-export function selectableRoutes(routes: readonly LiveRoute[]): LiveRoute[] {
-  return routes.filter(route => route.selectable)
-}
-
 export function overlayToDraft(overlay: Overlay): RoleDraft[] {
   return ALL_ROLES.map(role => {
     const assignment = overlay.roles[role] ?? { inherit: true, routes: [] }
@@ -51,7 +47,7 @@ export function draftToOverlay(drafts: readonly RoleDraft[]): Overlay {
 }
 
 export function liveFor(routes: readonly LiveRoute[], provider: string, model: string): LiveRoute | undefined {
-  return routes.find(route => route.selectable && route.provider === provider && route.model === model)
+  return routes.find(route => route.provider === provider && route.model === model)
 }
 
 export function stripIllegalEffort(route: OverlayRoute, live: readonly LiveRoute[]): OverlayRoute {
@@ -72,7 +68,7 @@ export function dropUnselectableRoles(overlay: Overlay, live: readonly LiveRoute
 } {
   const next = emptyOverlay()
   const droppedRoles: string[] = []
-  const selectable = new Set(live.filter(route => route.selectable).map(route => routeKey(route.provider, route.model)))
+  const selectable = new Set(live.map(route => routeKey(route.provider, route.model)))
   for (const role of ALL_ROLES) {
     const assignment = overlay.roles[role] ?? { inherit: true, routes: [] }
     if (role === 'how-critics') {

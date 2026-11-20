@@ -34,8 +34,6 @@ const JSON_OUTPUT = {
 function asHost(ctx: Context, config: PluginConfig | undefined): ToolHost {
   return {
     get llm() { return ctx.get('llm') as ToolHost['llm'] },
-    get credentials() { return ctx.get('credentials') as ToolHost['credentials'] },
-    get settings() { return ctx.get('settings') as ToolHost['settings'] },
     get subagents() { return ctx.get('subagents') as ToolHost['subagents'] },
     spawnProvider: config?.spawnProvider ?? SPAWN_PROVIDER,
   }

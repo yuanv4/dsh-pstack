@@ -31,13 +31,13 @@ describe('bundle composition', () => {
     assert.match(patch, /id:\s*pstack-dsh/)
     assert.match(patch, /name:\s*pstack-dsh/)
     assert.match(readme, /设置 → 插件 → 添加插件/)
-    const tag = `v${pkg.version}`.replace(/\./g, '\\.')
+    const tag = `v${pkg.version.split('-')[0]}`.replace(/\./g, '\\.')
     assert.match(readme, new RegExp(`github:aa2246740/pstack-dsh#${tag}`))
     assert.match(readme, new RegExp(`dsh plugin --profile web add github:aa2246740/pstack-dsh#${tag}`))
     assert.doesNotMatch(readme, /\bdshx\b|\bmy-plugins\b/i)
   })
 
-  it('declares a web client half on settings.section, not a second config file', async () => {
+  it('declares a web client half on plugins.detail.actions, not a second config file', async () => {
     const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as {
       name: string
       exports: Record<string, unknown>
@@ -46,16 +46,16 @@ describe('bundle composition', () => {
     assert.equal(pkg.name, 'pstack-dsh')
     assert.equal(pkg.exports['./client'], './lib/client.js')
     assert.equal(pkg.dsh.client.platform, 'web')
-    assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-settings'))
+    assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-plugin-manager'))
     assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-locale'))
   })
 
-  it('registers settings.section id pstack from the client entry', async () => {
+  it('registers plugins.detail.actions for pstack from the client entry', async () => {
     const source = await readFile(join(root, 'src/client/index.tsx'), 'utf8')
     assert.match(source, /export function apply/)
     assert.match(source, /export const inject = \['slots', 'locale', 'remote'\]/)
     assert.doesNotMatch(source, /export\s+default\s+/)
-    assert.match(source, /settings\.section/)
-    assert.match(source, /SETTINGS_SECTION_ID/)
+    assert.match(source, /plugins\.detail\.actions/)
+    assert.match(source, /subject\.pkg\.name !== PLUGIN_ID/)
   })
 })

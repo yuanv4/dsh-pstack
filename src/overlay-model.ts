@@ -107,7 +107,7 @@ export function parseOverlay(text: string): Overlay {
 
 export function validateOverlayAgainstCatalog(overlay: Overlay, routes: readonly LiveRoute[]): string[] {
   const errors: string[] = []
-  const live = new Map(routes.filter(route => route.selectable).map(route => [routeKey(route.provider, route.model), route]))
+  const live = new Map(routes.map(route => [routeKey(route.provider, route.model), route]))
   for (const role of ALL_ROLES) {
     if (role === 'how-critics') continue
     const assignment = overlay.roles[role] ?? { inherit: true, routes: [] }
@@ -115,7 +115,7 @@ export function validateOverlayAgainstCatalog(overlay: Overlay, routes: readonly
     for (const [index, entry] of assignment.routes.entries()) {
       const found = live.get(routeKey(entry.provider, entry.model))
       if (found === undefined) {
-        errors.push(`${role}[${index}]: ${entry.provider}/${entry.model} is not a logged-in live route`)
+        errors.push(`${role}[${index}]: ${entry.provider}/${entry.model} is not listed by DSH`)
         continue
       }
       if (entry.reasoningEffort === undefined) continue

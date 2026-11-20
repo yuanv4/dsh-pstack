@@ -17,7 +17,7 @@ Allowed fields: `description`, `prompt`, `role`, `run_in_background`, `route_ind
 
 Forbidden on this call: `model`, `provider`, `reasoning_effort`, `thinking`, `isolation`, `subagent_type`, `environment`, `readonly`, `resume_from`.
 
-Route and effort come from `$DSH_HOME/pstack-dsh.json` when Settings → pstack mapped that role to a live logged-in route. Missing overlay, `inherit: true`, or empty `routes`: inherit this conversation. Usable without setup.
+Route and effort come from `$DSH_HOME/pstack-dsh.json` when the plugin detail editor mapped that role to a DSH-listed route. Missing overlay, `inherit: true`, or empty `routes`: inherit this conversation. Usable without setup.
 
 ## Fallback
 
@@ -58,4 +58,4 @@ Panel roles (`arena-runners`, `arena-cross-judge-pool`, `architect-runners`, `in
 ## Todo and questions
 
 - `todo_write({ todos: [{ content, status }] })` replaces the whole list. Status is `pending`, `in_progress`, or `completed`. No `id`, `merge`, or `cancelled`.
-- Product or preference questions: `ask_user_question`. Not Cursor `AskQuestion`.
+- Product or preference questions: `ask_user_question`.

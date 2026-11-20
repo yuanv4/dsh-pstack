@@ -17,9 +17,6 @@ const live: LiveRoute[] = [
     providerName: 'DeepSeek',
     model: 'deepseek-chat',
     modelName: 'DeepSeek Chat',
-    selectable: true,
-    source: 'api-key',
-    routeRegistered: true,
     efforts: [{ id: 'high', name: 'High' }],
   },
   {
@@ -27,9 +24,6 @@ const live: LiveRoute[] = [
     providerName: 'Claude',
     model: 'claude-sonnet-4-6',
     modelName: 'Sonnet',
-    selectable: true,
-    source: 'oauth',
-    routeRegistered: true,
     efforts: [],
   },
 ]
@@ -88,7 +82,7 @@ describe('overlay', () => {
     }))
     assert.deepEqual(validateOverlayAgainstCatalog(good, live), [])
 
-    const unsigned = parseOverlay(JSON.stringify({
+    const unlisted = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
         feature: {
@@ -97,7 +91,7 @@ describe('overlay', () => {
         },
       },
     }))
-    assert.match(validateOverlayAgainstCatalog(unsigned, live).join('\n'), /not a logged-in live route/)
+    assert.match(validateOverlayAgainstCatalog(unlisted, live).join('\n'), /not listed by DSH/)
 
     const noEffort = parseOverlay(JSON.stringify({
       version: 1,
@@ -175,7 +169,7 @@ describe('overlay', () => {
     assert.equal(current.overlay.roles.feature?.routes[0]?.reasoningEffort, 'high')
   })
 
-  it('keeps the previous overlay intact when the atomic replacement cannot start', async () => {
+  it('keeps the previous overlay intact when the atomic replacement cannot start', { skip: process.platform === 'win32' }, async () => {
     const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-overlay-failure-'))
     const path = join(home, 'pstack-dsh.json')
     const original = '{"version":1,"roles":{}}\n'

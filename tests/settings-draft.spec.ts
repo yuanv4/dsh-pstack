@@ -18,9 +18,6 @@ const live: LiveRoute[] = [
     providerName: 'DeepSeek',
     model: 'deepseek-chat',
     modelName: 'DeepSeek Chat',
-    selectable: true,
-    source: 'api-key',
-    routeRegistered: true,
     efforts: [{ id: 'high', name: 'High' }],
   },
   {
@@ -28,9 +25,6 @@ const live: LiveRoute[] = [
     providerName: 'Claude',
     model: 'claude-sonnet-4-6',
     modelName: 'Sonnet',
-    selectable: true,
-    source: 'oauth',
-    routeRegistered: true,
     efforts: [],
   },
 ]
@@ -91,7 +85,7 @@ describe('settings draft', () => {
     assert.equal(result.overlay.roles.feature?.routes[0]?.provider, 'deepseek-official')
   })
 
-  it('applies one logged-in route to active roles including panels', () => {
+  it('applies one listed route to active roles including panels', () => {
     const drafts = applyRouteToAll(
       overlayToDraft(emptyOverlay()),
       { provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'high' },

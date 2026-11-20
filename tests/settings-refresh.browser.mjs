@@ -10,10 +10,10 @@ const candidate = process.argv[2] === undefined ? undefined : await readFile(res
 const origin = 'http://127.0.0.1:43127'
 const base = {
   provider: 'deepseek-official', providerName: 'Fixture', model: 'fixture-base', modelName: 'Fixture base',
-  selectable: true, source: 'api-key', routeRegistered: true, efforts: [{ id: 'high', name: 'High' }],
+  efforts: [{ id: 'high', name: 'High' }],
 }
 const glm = {
-  ...base, provider: 'pi-zai-coding-cn', model: 'glm-5.3-flash', modelName: 'GLM', source: 'oauth', oauthSignedIn: true,
+  ...base, provider: 'pi-zai-coding-cn', model: 'glm-5.3-flash', modelName: 'GLM',
 }
 let routes = [base]
 let requests = 0
@@ -21,9 +21,7 @@ let eventSeq = 0
 let holdNext
 const snapshot = () => ({
   catalog: {
-    routes, selectableCount: routes.length, oauthPluginPresent: true, oauthStorePresent: true,
-    oauthSignedInProviders: [], overlayPath: '(test-only)', overlayMissing: true,
-    inheritParent: true, recommendOauthLogin: false,
+    routes, overlayPath: '(test-only)', overlayMissing: true, inheritParent: true,
   },
   overlay: { version: 1, roles: {} }, path: '(test-only)', missing: true, droppedRoles: [],
 })
@@ -90,7 +88,9 @@ try {
   }
   await page.goto(origin, { waitUntil: 'domcontentloaded' })
   await page.getByText('设置', { exact: true }).first().click()
-  await page.getByText('pstack 角色', { exact: true }).first().click()
+  await page.getByText('插件', { exact: true }).first().click()
+  await page.getByRole('button', { name: /^查看 .*pstack/i }).first().click()
+  await page.getByRole('button', { name: 'pstack 角色', exact: true }).click()
   const feature = page.locator('#pstack-role-feature')
   await feature.selectOption('deepseek-official::fixture-base')
   await page.locator('#pstack-effort-feature').selectOption('high')
@@ -112,7 +112,7 @@ try {
   assert.equal(await page.locator('#pstack-effort-feature').inputValue(), 'high')
 
   routes = [glm]
-  await notify('credentials/reference-updated', ['fixture-key'])
+  await notify('llm/models-updated', ['deepseek-official'])
   await hasChoice('deepseek-official::fixture-base', false)
   assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
   assert.match(await feature.locator('option:checked').innerText(), /暂不可用/)
@@ -137,7 +137,7 @@ try {
   await page.waitForTimeout(100)
   assert.equal(await feature.locator('option[value="pi-zai-coding-cn::stale-fixture"]').count(), 0)
 
-  await page.getByText('通用设置', { exact: true }).first().click()
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
   await page.locator('.pstack-page').waitFor({ state: 'detached' })
   const afterClose = requests
   await notify()

@@ -26,9 +26,9 @@ dsh plugin --profile web add github:aa2246740/pstack-dsh#v0.2.5
 
 This official CLI command writes only the `web` profile; it cannot modify the Desktop App profile. For an already-running Web Host, reopen that Host once and reload the page.
 
-面向官方 DeepSeek Harness **0.2.1-rc.5**（tag `dsh-v0.2.1-rc.5`，npm `@deepseek-ai/dsh@0.2.1-rc.5`）。Node `^22.19.0` 或 `>=24`。`@deepseek-ai/dsh-*` peer 范围是 `>=0.2.1-rc.1 <0.2.2`，接受 `0.2.1-rc.5`，拒绝 `0.2.0` 系列与 `0.2.1` alpha。
+面向官方 DeepSeek Harness **0.2.2-rc.4**（tag `dsh-v0.2.2-rc.4`，npm `@deepseek-ai/dsh@0.2.2-rc.4`）。Node `^22.19.0` 或 `>=24`。`@deepseek-ai/dsh-*` peer 范围是 `>=0.2.2-rc.4 <0.2.3`，接受 `0.2.2-rc.4`，拒绝 `0.2.0` 系列与 `0.2.1` alpha。
 
-Targets official DeepSeek Harness **0.2.1-rc.5** (tag `dsh-v0.2.1-rc.5`, npm `@deepseek-ai/dsh@0.2.1-rc.5`). Node `^22.19.0` or `>=24`. The `@deepseek-ai/dsh-*` peer range is `>=0.2.1-rc.1 <0.2.2`: it accepts `0.2.1-rc.5` and rejects the `0.2.0` series and `0.2.1` alphas.
+Targets official DeepSeek Harness **0.2.2-rc.4** (tag `dsh-v0.2.2-rc.4`, npm `@deepseek-ai/dsh@0.2.2-rc.4`). Node `^22.19.0` or `>=24`. The `@deepseek-ai/dsh-*` peer range is `>=0.2.2-rc.4 <0.2.3`: it accepts `0.2.2-rc.4` and rejects the `0.2.0` series and `0.2.1` alphas.
 
 **English title.** pstack-dsh, a DeepSeek Harness port of official pstack.
 
@@ -72,10 +72,10 @@ Use the in-app “Add plugin” entry above for the Desktop App. The public CLI 
 Two steps.
 
 1. 要做事、要严谨，直接用 [`/poteto-mode`](./skills/poteto-mode/SKILL.md)。不用先跑 setup。子 agent 默认继承当前对话的路由。
-2. 只有想给某个角色换已登录的路由时，打开 **设置 → pstack**（导航「pstack 角色」/「pstack roles」）。页面写入 `$DSH_HOME/pstack-dsh.json`。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 只是指向那一页的指针。
+2. 只有想给某个角色换已登录的路由时，打开 **插件 → pstack-dsh → pstack 角色**（导航「pstack 角色」/「pstack roles」）。页面写入 `$DSH_HOME/pstack-dsh.json`。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 只是指向那一页的指针。
 
 1. Use [`/poteto-mode`](./skills/poteto-mode/SKILL.md) for work that needs rigor. No setup required. Children inherit this conversation's route.
-2. To pin a logged-in route per role, open **Settings → pstack** (nav label **pstack 角色** / **pstack roles**). The page writes `$DSH_HOME/pstack-dsh.json`. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) is an optional pointer to that page.
+2. To pin a logged-in route per role, open **Plugins → pstack-dsh → pstack roles** (nav label **pstack 角色** / **pstack roles**). The page writes `$DSH_HOME/pstack-dsh.json`. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) is an optional pointer to that page.
 
 角色模型列表会随 DSH 的登录、退出登录和模型目录变更通知更新，也可点击「刷新模型列表」。刷新只更新候选项，不覆盖尚未保存的角色和 effort；当前选择若失去登录会标为「暂不可用」。新加入 dsh-oauth-login 的 `pi-*` 路由以及 dsh-antigravity-oauth 的 `agy-*` 路由只要已登录且已注册，就会自动纳入，无需在 pstack 里再维护一份提供商名单。
 
@@ -90,12 +90,12 @@ role to a Cursor subscription model without storing Cursor credentials in DSH.
 后，pstack 也会发现由本机 Cursor CLI 登录的 `cursor` 提供商。这样 DSH 父对话可以把指定角色分配给 Cursor 订阅模型，无需在 DSH 中保存 Cursor 凭据。
 
 For mixed routing, keep the parent conversation on a native DSH provider and
-assign Cursor models to selected roles in **Settings → pstack**. `pstack_spawn`
+assign Cursor models to selected roles in **Plugins → pstack-dsh → pstack roles**. `pstack_spawn`
 then routes those children through Cursor. If the parent itself uses Cursor
 passthrough, it runs through Cursor ACP and cannot call DSH-only tools such as
 `pstack_spawn`; use Cursor's own subagents in that case.
 
-混合路由时，请让父对话使用 DSH 原生提供商，再在 **设置 → pstack** 中把部分角色分配给 Cursor 模型。若父对话本身使用 Cursor passthrough，该轮会通过 Cursor ACP 执行，无法调用 `pstack_spawn` 等 DSH 专用工具；此时请使用 Cursor 自带的子代理。
+混合路由时，请让父对话使用 DSH 原生提供商，再在 **插件 → pstack-dsh → pstack 角色** 中把部分角色分配给 Cursor 模型。若父对话本身使用 Cursor passthrough，该轮会通过 Cursor ACP 执行，无法调用 `pstack_spawn` 等 DSH 专用工具；此时请使用 Cursor 自带的子代理。
 
 第一次用可以看 [pstack 指南](./docs/guide/README.md)。
 
@@ -117,7 +117,7 @@ The Poteto 0.15 recommendations are display-only. Existing model and effort assi
 
 装完就能用，不必先打开设置，也不必跑 `/setup-pstack`。
 
-A fresh install is usable without Settings → pstack and without `/setup-pstack`.
+A fresh install is usable without Plugins → pstack-dsh → pstack roles and without `/setup-pstack`.
 
 **模型 / Model.** 不要发送 `model`，除非 live catalog 里已经有这一条。没有 overlay 就继承父对话。不要编造 Cursor 面板 slug（`grok-4.6-fast-xhigh`、`gpt-5.6-sol-max`、`claude-fable-5-thinking-max`、`claude-opus-5-thinking-xhigh`）。
 
@@ -127,17 +127,17 @@ Do not send `model` unless that pair was detected live. Missing overlay inherits
 
 Effort is only the ids that route actually accepts. If the route has none, omit it. Skills never send `reasoning_effort` or `thinking` on spawn. Official `subagent` has no such field. Role effort lives in the overlay and is applied on `agent/request`.
 
-**设置 / Settings.** 配置页是官方 Settings 里的 `settings.section`（id `pstack`，order 16）。只列出已登录路由；effort 只列出该路由 live `resolveModelInfo().reasoning.efforts`。空列表就是继承父对话。保存写同一份 overlay，不是第二份配置。
+**设置 / Settings.** 配置入口使用插件详情页的 `plugins.detail.actions`。模型列表以 DSH 模型目录为准；effort 只列出该路由 live `resolveModelInfo().reasoning.efforts`。空列表就是继承父对话。保存写同一份 overlay，不是第二份配置。
 
-The editor is the official Settings `settings.section` (id `pstack`, order 16). It lists logged-in routes only. Effort options are that route's live `resolveModelInfo().reasoning.efforts`. An empty list means inherit the parent. Save writes the same overlay, not a second file.
+The editor opens from the official `plugins.detail.actions` slot. It lists models advertised by the DSH runtime. Effort options are that route's live `resolveModelInfo().reasoning.efforts`. An empty list means inherit the parent. Save writes the same overlay, not a second file.
 
-设置页只列出已经登录的 API key 路由，以及 dsh-oauth-login / dsh-antigravity-oauth 里已经签过名、并且适配器已注册的路由。空目录就是继承父对话。
+模型目录以 DSH 注册适配器返回的模型为准。pstack 不再检查提供商前缀、API Key 或 OAuth 文件。空目录就是继承父对话。
 
 ## 推荐依赖 / Recommended peer
 
-订阅与服务登录（ChatGPT / Claude / Grok / Copilot / OpenRouter / Kimi / Google Antigravity）要出现在 **设置 → pstack** 列表里，可按需安装 [dsh-oauth-login](https://github.com/aa2246740/dsh-oauth-login) 或 dsh-antigravity-oauth。不是硬依赖。只用 API key 的用户可以不装。本插件不读写 `~/.pi`、`~/.codex`、`~/.claude`、grok CLI 登录文件。
+订阅与服务登录（ChatGPT / Claude / Grok / Copilot / OpenRouter / Kimi / Google Antigravity）要出现在 **插件 → pstack-dsh → pstack 角色** 列表里，可按需安装 [dsh-oauth-login](https://github.com/aa2246740/dsh-oauth-login) 或 dsh-antigravity-oauth。不是硬依赖。只用 API key 的用户可以不装。本插件不读写 `~/.pi`、`~/.codex`、`~/.claude`、grok CLI 登录文件。
 
-Subscription logins show up on **Settings → pstack** after you install [dsh-oauth-login](https://github.com/aa2246740/dsh-oauth-login) or dsh-antigravity-oauth. They are not required. API-key-only users work without them. This plugin does not read or write official CLI auth files.
+Subscription logins show up on **Plugins → pstack-dsh → pstack roles** after you install [dsh-oauth-login](https://github.com/aa2246740/dsh-oauth-login) or dsh-antigravity-oauth. They are not required. API-key-only users work without them. This plugin does not read or write official CLI auth files.
 
 ```sh
 dsh plugin --profile web add github:aa2246740/dsh-oauth-login#v0.2.7
@@ -145,9 +145,9 @@ dsh plugin --profile web add github:aa2246740/dsh-oauth-login#v0.2.7
 
 ## 这不是 Cursor 插件 / Not the Cursor plugin
 
-这里的角色映射在 **设置 → pstack**。官方 Cursor `/setup-pstack` 会写 `~/.cursor/rules`，并用 Cursor 的模型名。不要在 DSH 上跑那份。
+这里的角色映射在 **插件 → pstack-dsh → pstack 角色**。官方 Cursor `/setup-pstack` 会写 `~/.cursor/rules`，并用 Cursor 的模型名。不要在 DSH 上跑那份。
 
-Role mapping in this repo is **Settings → pstack**. Official Cursor `/setup-pstack` writes `~/.cursor/rules` and uses Cursor slugs. Do not run it here.
+Role mapping in this repo is **Plugins → pstack-dsh → pstack roles**. Official Cursor `/setup-pstack` writes `~/.cursor/rules` and uses Cursor slugs. Do not run it here.
 
 ## 工具 / Tools
 
@@ -160,7 +160,7 @@ This plugin registers:
 | `pstack_spawn` | 按角色起 DSH 子 agent。不要传 model / effort。 |
 | `pstack_catalog` | 只列出已登录的 live 路由。 |
 | `pstack_overlay_read` / `pstack_overlay_write` | 读写 `$DSH_HOME/pstack-dsh.json`。 |
-| Settings → pstack | 官方设置页。保存同一份 overlay。 |
+| Plugins → pstack-dsh → pstack roles | 官方设置页。保存同一份 overlay。 |
 
 技能入口：`/poteto-mode`，以及 bundled 的 playbook / principle skills。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 指向设置页。
 
