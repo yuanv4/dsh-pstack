@@ -169,7 +169,7 @@ export async function buildCatalog(host: CatalogHost, signal?: AbortSignal): Pro
   const llm = host.llm
   const providers = llm?.listProviders() ?? []
   const registered = new Set(providers.map(provider => provider.id))
-  const oauthPluginPresent = [...registered].some(id => id.startsWith('pi-') || id === ANTIGRAVITY_PROVIDER || id.startsWith('agy-'))
+  const oauthPluginPresent = registered.has('codex') || [...registered].some(id => id.startsWith('pi-') || id === ANTIGRAVITY_PROVIDER || id.startsWith('agy-'))
   const recommendOauthLogin = oauth.ids.length === 0 && !oauthPluginPresent
 
   const refsByProvider = new Map<string, Set<string>>()
@@ -217,7 +217,6 @@ export async function buildCatalog(host: CatalogHost, signal?: AbortSignal): Pro
   if (llm !== undefined) {
     for (const provider of providers) {
       const storeId = storeIdForRoute(provider.id)
-      const oauthSignedIn = storeId !== undefined && oauth.ids.includes(storeId)
       let models: { id: string; name: string }[] = []
       try {
         models = await llm.listModels(provider.id)
@@ -225,6 +224,10 @@ export async function buildCatalog(host: CatalogHost, signal?: AbortSignal): Pro
         models = []
       }
       if (models.length === 0) continue
+
+      // dsh-plugin-subscriptions gates the codex catalog on its own OAuth
+      // sessions. Do not read its credentials or infer availability by name.
+      const oauthSignedIn = provider.id === 'codex' || (storeId !== undefined && oauth.ids.includes(storeId))
 
       const refs = [...(refsByProvider.get(provider.id) ?? [])]
       let keyPresent = false
