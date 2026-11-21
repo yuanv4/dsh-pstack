@@ -14,7 +14,7 @@ import {
 import { resolveDshHome } from './home.ts'
 import { loadPersona } from './persona.ts'
 import { resolveSpawn } from './spawn.ts'
-import { isPstackRole, normalizeRole } from './roles.ts'
+import { normalizeRole } from './roles.ts'
 import {
   SPAWN_PROVIDER,
   TOOL_CATALOG,
@@ -113,7 +113,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
       role: {
         type: 'string',
         required: true,
-        description: 'pstack role key (feature, how-explainer, poteto-agent, comment-sicko, …).',
+        description: 'pstack role key. The nine mapped roles are feature, refactoring / bug-fix / perf-issue / hillclimb / judgment and prose / arena runners / arena cross-judge pool / swarm workers / interrogate reviewers. Any other name, such as how-explorer, inherits the parent route.',
       },
       run_in_background: {
         type: 'boolean',
@@ -130,10 +130,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
       const subagents = host.subagents
       if (subagents === undefined) throw new Error('pstack_spawn requires ctx.subagents')
       const role = normalizeRole(String(args.role ?? ''))
-      if (role === 'how-critics') {
-        return { kind: 'disabled', role, reason: 'how-critics was retired in pstack 0.15; no agent was started.' }
-      }
-      if (!isPstackRole(role) && role.length === 0) throw new Error('pstack_spawn role is required')
+      if (role.length === 0) throw new Error('pstack_spawn role is required')
       const overlay: Overlay = (await readOverlay(host.dshHome ?? resolveDshHome(host.env))).overlay
       const resolved = resolveSpawn(overlay, {
         role,

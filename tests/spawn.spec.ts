@@ -29,7 +29,7 @@ describe('frontmatter', () => {
 describe('resolveSpawn', () => {
   it('inherits when the overlay is missing a mapping', () => {
     const resolved = resolveSpawn(emptyOverlay(), {
-      role: 'feature',
+      role: 'feature, refactoring',
       description: 'build flag',
       prompt: 'add --json',
       runInBackground: true,
@@ -60,7 +60,7 @@ describe('resolveSpawn', () => {
     assert.equal(resolved.inherit, true)
 
     const feature = resolveSpawn(overlay, {
-      role: 'feature',
+      role: 'feature, refactoring',
       description: 'build flag',
       prompt: 'add --json',
       runInBackground: true,

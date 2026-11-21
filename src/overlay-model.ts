@@ -1,4 +1,4 @@
-import { ALL_ROLES, isPanelRole, isPstackRole, type PstackRole } from './roles.ts'
+import { ALL_ROLES, isPanelRole, isPstackRole, isRetiredRole, normalizeRole, type PstackRole } from './roles.ts'
 import type { LiveRoute } from './catalog-types.ts'
 
 export const OVERLAY_VERSION = 1 as const
@@ -95,12 +95,17 @@ export function parseOverlay(text: string): Overlay {
   const rolesRaw = value.roles
   if (!isRecord(rolesRaw)) throw new Error('pstack-dsh overlay.roles must be an object')
   const roles: Record<string, OverlayRole> = {}
-  for (const role of ALL_ROLES) {
-    const entry = rolesRaw[role]
-    roles[role] = entry === undefined ? { inherit: true, routes: [] } : parseRole(entry, role)
-  }
-  for (const key of Object.keys(rolesRaw)) {
-    if (!isPstackRole(key)) throw new Error(`unknown pstack role "${key}"`)
+  for (const role of ALL_ROLES) roles[role] = { inherit: true, routes: [] }
+  // Older files named the retired port roles and hyphenated panel names. Migrate
+  // the nine upstream lines and drop retired ones so a stale file still opens.
+  for (const [rawKey, rawValue] of Object.entries(rolesRaw)) {
+    const key = normalizeRole(rawKey)
+    if (isPstackRole(key)) {
+      roles[key] = parseRole(rawValue, key)
+      continue
+    }
+    if (isRetiredRole(rawKey)) continue
+    throw new Error(`unknown pstack role "${rawKey}"`)
   }
   return { version: OVERLAY_VERSION, roles }
 }
@@ -109,7 +114,6 @@ export function validateOverlayAgainstCatalog(overlay: Overlay, routes: readonly
   const errors: string[] = []
   const live = new Map(routes.map(route => [routeKey(route.provider, route.model), route]))
   for (const role of ALL_ROLES) {
-    if (role === 'how-critics') continue
     const assignment = overlay.roles[role] ?? { inherit: true, routes: [] }
     if (assignment.inherit) continue
     for (const [index, entry] of assignment.routes.entries()) {

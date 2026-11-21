@@ -36,24 +36,23 @@ DSH `subagent` has no isolation field. Children share the parent cwd (`packages/
 
 ## Roles
 
-| Role key | Used by |
+Nine upstream lines can hold a model mapping:
+
+| Role | Used by |
 |---|---|
-| `feature` `refactoring` `bug-fix` `perf-issue` `hillclimb` | playbook code delegates |
-| `judgment-and-prose` `hardest-tasks` | hardest / judgment code |
-| `how-explorer` `how-explainer` | `/how` |
-| `why-investigators` `why-synthesizer` | `/why` |
-| `reflect-tooling` `reflect-judgment` | `/reflect` |
-| `swarm-workers` | `/swarm` |
-| `arena-runners` `arena-cross-judge-pool` | `/arena` |
-| `architect-runners` | `/architect` via arena |
-| `interrogate-reviewers` | `/interrogate` |
-| `independent-verifier` | second opinion; does not write the diff |
-| `poteto-agent` | ad-hoc playbook helpers |
-| `comment-sicko` | `/no-comments` |
+| `feature, refactoring` | feature and refactoring code delegates |
+| `bug-fix` | bug fix delegate |
+| `perf-issue` | performance delegate |
+| `hillclimb` | hillclimb delegate |
+| `judgment and prose` | hardest and judgment-heavy work |
+| `arena runners` | `/arena` candidates, `/architect` design candidates |
+| `arena cross-judge pool` | `/arena` cross-judge |
+| `swarm workers` | `/swarm` workers, and verification |
+| `interrogate reviewers` | `/interrogate` reviewers |
 
-`generalPurpose` and `Comment Sicko` normalize to `poteto-agent` and `comment-sicko`.
+Any other role name a skill uses, such as `how-explorer`, `how-explainer`, `why-investigators`, `why-synthesizer`, `reflect-judgment`, `poteto-agent`, or `comment-sicko`, has no line. Those children run on this conversation's route. The retired names (`hardest-tasks`, `architect-runners`, `how-critics`, …) are dropped when the overlay is read.
 
-Panel roles (`arena-runners`, `arena-cross-judge-pool`, `architect-runners`, `interrogate-reviewers`): call `pstack_overlay_read`. If the role inherits, spawn N independent children all inheriting (same route, separate reads). If the role has routes, one `pstack_spawn` per route with `route_index` 0..n-1. Do not invent slugs to fake a panel.
+Panel roles (`arena runners`, `arena cross-judge pool`, `swarm workers`, `interrogate reviewers`): call `pstack_overlay_read`. If the role inherits, spawn N independent children all inheriting (same route, separate reads). If the role has routes, one `pstack_spawn` per route with `route_index` 0..n-1. Do not invent slugs to fake a panel.
 
 ## Todo and questions
 

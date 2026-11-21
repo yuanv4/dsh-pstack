@@ -33,9 +33,9 @@ Write one clear paragraph. If you're unsure about the intent, ask the user befor
 
 ## Step 3, Spawn Reviewers
 
-Launch all reviewers in a single message using `pstack_spawn`. Call `pstack_overlay_read` for `interrogate-reviewers`. If the overlay lists routes, one reviewer per entry with `route_index`. If it inherits, spawn two independent reviewers both inheriting this conversation. Do not invent slugs. Do not use a default Cursor panel table.
+Launch all reviewers in a single message using `pstack_spawn`. Call `pstack_overlay_read` for `interrogate reviewers`. If the overlay lists routes, one reviewer per entry with `route_index`. If it inherits, spawn two independent reviewers both inheriting this conversation. Do not invent slugs. Do not use a default Cursor panel table.
 
-For each reviewer: `role: interrogate-reviewers`, `run_in_background: true`. Do not send `model` or `readonly`. Instruct no writes in the prompt. Follow [`../setup-pstack/references/spawn.md`](../setup-pstack/references/spawn.md).
+For each reviewer: `role: "interrogate reviewers"`, `run_in_background: true`. Do not send `model` or `readonly`. Instruct no writes in the prompt. Follow [`../setup-pstack/references/spawn.md`](../setup-pstack/references/spawn.md).
 
 Read `references/reviewer-prompt.md` and fill in the template with:
 1. The stated intent

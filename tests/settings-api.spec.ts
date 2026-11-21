@@ -34,7 +34,7 @@ describe('settings snapshot/save', () => {
       },
     })
     assert.equal(snapshot.catalog.routes.length, 0)
-    assert.equal(snapshot.overlay.roles.feature?.inherit, true)
+    assert.equal(snapshot.overlay.roles['feature, refactoring']?.inherit, true)
     assert.equal(snapshot.missing, true)
     assert.equal(snapshot.path.endsWith(OVERLAY_FILENAME), true)
   })
@@ -49,7 +49,7 @@ describe('settings snapshot/save', () => {
     const saved = await saveSettingsOverlay(host, {
       version: 1,
       roles: {
-        feature: {
+        'feature, refactoring': {
           inherit: false,
           routes: [{ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'high' }],
         },
@@ -59,7 +59,7 @@ describe('settings snapshot/save', () => {
     assert.match(text, /deepseek-official/)
     assert.match(text, /"high"/)
     const snapshot = await loadSettingsSnapshot(host)
-    assert.equal(snapshot.overlay.roles.feature?.routes[0]?.reasoningEffort, 'high')
+    assert.equal(snapshot.overlay.roles['feature, refactoring']?.routes[0]?.reasoningEffort, 'high')
     assert.equal(snapshot.missing, false)
   })
 
@@ -141,7 +141,7 @@ describe('settings snapshot/save', () => {
     models.length = 0
     const unavailable = await loadSettingsSnapshot(host)
     assert.equal(unavailable.catalog.routes.length, 0)
-    assert.deepEqual(unavailable.droppedRoles, ['feature'])
+    assert.deepEqual(unavailable.droppedRoles, ['feature, refactoring'])
     assert.equal(await readFile(saved.path, 'utf8'), savedBytes)
     await assert.rejects(() => saveSettingsOverlay(host, saved.overlay), /not listed by DSH/)
   })

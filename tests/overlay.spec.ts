@@ -33,33 +33,33 @@ describe('overlay', () => {
     const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-overlay-missing-'))
     const current = await readOverlay(home)
     assert.equal(current.missing, true)
-    assert.equal(current.overlay.roles.feature?.inherit, true)
-    assert.deepEqual(current.overlay.roles.feature?.routes, [])
+    assert.equal(current.overlay.roles['feature, refactoring']?.inherit, true)
+    assert.deepEqual(current.overlay.roles['feature, refactoring']?.routes, [])
   })
 
   it('parses inherit-parent aliases and rejects extra fields', () => {
     const overlay = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        feature: { inherit: 'auto', routes: [] },
+        'feature, refactoring': { inherit: 'auto', routes: [] },
       },
     }))
-    assert.equal(overlay.roles.feature?.inherit, true)
+    assert.equal(overlay.roles['feature, refactoring']?.inherit, true)
     assert.throws(() => parseOverlay(JSON.stringify({
       version: 1,
-      roles: { feature: { inherit: false, routes: [{ provider: 'x', model: 'y', extra: true }] } },
+      roles: { 'feature, refactoring': { inherit: false, routes: [{ provider: 'x', model: 'y', extra: true }] } },
     })))
     assert.throws(() => parseOverlay(JSON.stringify({
       version: 1,
       roles: { 'not-a-role': { inherit: true, routes: [] } },
-    })))
+    })), /unknown/)
   })
 
   it('rejects a scalar role with two routes', () => {
     assert.throws(() => parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        feature: {
+        'feature, refactoring': {
           inherit: false,
           routes: [
             { provider: 'deepseek-official', model: 'deepseek-chat' },
@@ -70,11 +70,32 @@ describe('overlay', () => {
     })))
   })
 
+  it('migrates legacy role names and drops the retired ones', () => {
+    const overlay = parseOverlay(JSON.stringify({
+      version: 1,
+      roles: {
+        feature: { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] },
+        'judgment-and-prose': { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] },
+        'arena-runners': { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] },
+        'how-critics': { inherit: false, routes: [{ provider: 'old', model: 'old', reasoningEffort: 'legacy-max' }] },
+        'hardest-tasks': { inherit: false, routes: [{ provider: 'old', model: 'old' }] },
+        'poteto-agent': { inherit: false, routes: [{ provider: 'old', model: 'old' }] },
+      },
+    }))
+    assert.equal(Object.keys(overlay.roles).length, 9)
+    assert.equal(overlay.roles['feature, refactoring']?.routes.length, 1)
+    assert.equal(overlay.roles['judgment and prose']?.routes.length, 1)
+    assert.equal(overlay.roles['arena runners']?.routes.length, 1)
+    assert.equal('how-critics' in overlay.roles, false)
+    assert.equal('hardest-tasks' in overlay.roles, false)
+    assert.equal('poteto-agent' in overlay.roles, false)
+  })
+
   it('validates routes and efforts against the live catalog', () => {
     const good = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        feature: {
+        'feature, refactoring': {
           inherit: false,
           routes: [{ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'high' }],
         },
@@ -85,7 +106,7 @@ describe('overlay', () => {
     const unlisted = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        feature: {
+        'feature, refactoring': {
           inherit: false,
           routes: [{ provider: 'openai', model: 'gpt-4' }],
         },
@@ -96,7 +117,7 @@ describe('overlay', () => {
     const noEffort = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        'why-synthesizer': {
+        'judgment and prose': {
           inherit: false,
           routes: [{ provider: 'pi-anthropic', model: 'claude-sonnet-4-6', reasoningEffort: 'xhigh' }],
         },
@@ -107,7 +128,7 @@ describe('overlay', () => {
     const wrongEffort = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        feature: {
+        'feature, refactoring': {
           inherit: false,
           routes: [{ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'max' }],
         },
@@ -116,38 +137,22 @@ describe('overlay', () => {
     assert.match(validateOverlayAgainstCatalog(wrongEffort, live).join('\n'), /not accepted/)
   })
 
-  it('ignores stale critics routes and effort without exempting active roles', () => {
-    const critics = {
-      inherit: false,
-      routes: [
-        { provider: 'retired-provider', model: 'retired-model', reasoningEffort: 'legacy-max' },
-        { provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'obsolete' },
-        { provider: 'pi-anthropic', model: 'claude-sonnet-4-6', reasoningEffort: 'xhigh' },
-      ],
-    }
-    const overlay = parseOverlay(JSON.stringify({ version: 1, roles: { 'how-critics': critics } }))
-    const original = structuredClone(overlay)
-    assert.deepEqual(validateOverlayAgainstCatalog(overlay, live), [])
-    assert.deepEqual(validateOverlayAgainstCatalog(overlay, []), [])
-    assert.deepEqual(overlay, original)
-    overlay.roles['arena-runners'] = critics
-    const errors = validateOverlayAgainstCatalog(overlay, live)
-    assert.equal(errors.length, 3)
-    assert.ok(errors.every(error => error.startsWith('arena-runners[')))
-  })
-
-  it('accepts the legacy role but rejects unknown keys at every overlay level', () => {
-    const critics = { inherit: false, routes: [{ provider: 'old', model: 'old', reasoningEffort: 'max' }] }
-    assert.deepEqual(parseOverlay(JSON.stringify({ version: 1, roles: { 'how-critics': critics } })).roles['how-critics'], critics)
-    const invalid = [
-      { version: 1, roles: { 'how-critics': critics }, extra: true },
-      { version: 1, roles: { 'how-critics': critics, 'how-critics-new': critics } },
-      { version: 1, roles: { 'how-critics': { ...critics, extra: true } } },
-      { version: 1, roles: { 'how-critics': { ...critics, routes: [{ ...critics.routes[0], extra: true }] } } },
-    ]
-    for (const value of invalid) {
-      assert.throws(() => parseOverlay(JSON.stringify(value)), /unknown/)
-    }
+  it('reports every route of a panel role with its index', () => {
+    const panel = parseOverlay(JSON.stringify({
+      version: 1,
+      roles: {
+        'arena runners': {
+          inherit: false,
+          routes: [
+            { provider: 'retired-provider', model: 'retired-model' },
+            { provider: 'openai', model: 'gpt-4' },
+          ],
+        },
+      },
+    }))
+    const errors = validateOverlayAgainstCatalog(panel, live)
+    assert.equal(errors.length, 2)
+    assert.ok(errors.every(error => error.startsWith('arena runners[')))
   })
 
   it('round-trips a write', async () => {
@@ -155,7 +160,7 @@ describe('overlay', () => {
     const overlay = parseOverlay(JSON.stringify({
       version: 1,
       roles: {
-        feature: {
+        'feature, refactoring': {
           inherit: false,
           routes: [{ provider: 'deepseek-official', model: 'deepseek-chat', reasoningEffort: 'high' }],
         },
@@ -165,8 +170,8 @@ describe('overlay', () => {
     const current = await readOverlay(home)
     assert.equal(current.missing, false)
     assert.equal(current.path, path)
-    assert.equal(current.overlay.roles.feature?.inherit, false)
-    assert.equal(current.overlay.roles.feature?.routes[0]?.reasoningEffort, 'high')
+    assert.equal(current.overlay.roles['feature, refactoring']?.inherit, false)
+    assert.equal(current.overlay.roles['feature, refactoring']?.routes[0]?.reasoningEffort, 'high')
   })
 
   it('keeps the previous overlay intact when the atomic replacement cannot start', { skip: process.platform === 'win32' }, async () => {
@@ -175,7 +180,7 @@ describe('overlay', () => {
     const original = '{"version":1,"roles":{}}\n'
     const replacement = parseOverlay(JSON.stringify({
       version: 1,
-      roles: { feature: { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] } },
+      roles: { 'feature, refactoring': { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] } },
     }))
     await writeFile(path, original, { mode: 0o600 })
     await chmod(home, 0o500)

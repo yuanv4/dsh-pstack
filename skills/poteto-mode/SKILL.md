@@ -91,15 +91,15 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 Follow [`../setup-pstack/references/spawn.md`](../setup-pstack/references/spawn.md).
 
-**Use `pstack_spawn` with `role: "poteto-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). `/poteto-mode` and `poteto-agent` share that persona. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`, `arena`) set their own `role`; respect what the skill prescribes, don't override to `poteto-agent`.
+**Use `pstack_spawn` with `role: poteto-agent` for a delegate no playbook or routed skill names a role for.** `/poteto-mode` and `poteto-agent` share that persona. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`, `arena`) set their own `role`; respect what the skill prescribes, don't override to `poteto-agent`.
 
-**Defaults for every `pstack_spawn` call.** `run_in_background: true`. File pointers, not inlined dumps. Do not send `model`, `provider`, `reasoning_effort`, `thinking`, `isolation`, `subagent_type`, or `environment`. Out of the box the child inherits this conversation. `/setup-pstack` may map a role onto a logged-in live route; then `pstack_spawn` applies that overlay without the skill sending slugs. Code delegates: `feature` / `refactoring` / `bug-fix` / `perf-issue` / `hillclimb` / `hardest-tasks` as the playbook names. Independent verify: `independent-verifier`. `/no-comments`: `comment-sicko`.
+**Defaults for every `pstack_spawn` call.** `run_in_background: true`. File pointers, not inlined dumps. Do not send `model`, `provider`, `reasoning_effort`, `thinking`, `isolation`, `subagent_type`, or `environment`. Out of the box the child inherits this conversation. `/setup-pstack` may map a role onto a logged-in live route; then `pstack_spawn` applies that overlay without the skill sending slugs. The mapped roles are the nine lines from upstream `setup-pstack`: `feature, refactoring` / `bug-fix` / `perf-issue` / `hillclimb` for code delegates, `judgment and prose`, `arena runners` / `arena cross-judge pool` / `swarm workers` / `interrogate reviewers` for panels. Verification runs on `swarm workers`. `/no-comments` uses `comment-sicko`. Every other role name, such as `how-explorer`, `why-investigators`, or `poteto-agent`, has no line and runs on this conversation's route.
 
 DSH `subagent` has no worktree field. When workers must not share a tree, this parent creates the worktree and puts the path in the prompt. Nested spawn exists (default depth 3) but playbook fan-out still belongs on the parent when isolation or overlay routing matters.
 
 If `pstack_spawn` is missing, fall back to official `subagent` with only `description`, `prompt`, `run_in_background`.
 
-You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. Fire a fresh subagent with consolidated scope rather than trusting a "done" summary. A second opinion is the same prompt with `role: independent-verifier` (a different overlay route when setup mapped one). Agreement is high-signal.
+You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. Fire a fresh subagent with consolidated scope rather than trusting a "done" summary. A second opinion is the same prompt with `role: "swarm workers"` (a different overlay route when setup mapped one). Agreement is high-signal.
 
 ## Writing the reply
 

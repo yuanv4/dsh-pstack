@@ -25,12 +25,12 @@ The N candidates will receive the same prompt, so the prompt is the contract.
 
 1. State the artifact each candidate is producing.
 2. Derive the rubric. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. The rubric is the picker's tool in Phase D. Candidates only see the task.
-3. Pick the runners. Call `pstack_overlay_read` for `arena-runners`. If it lists routes, one runner per entry with `route_index`. If it inherits, spawn N independent runners all inheriting this conversation (N from the framed task, at least two). Do not invent slugs. Spawn more when the arena covers multiple design directions. Same route N times when the work is generation-bound rather than judgment-sensitive.
+3. Pick the runners. Call `pstack_overlay_read` for `arena runners`. If it lists routes, one runner per entry with `route_index`. If it inherits, spawn N independent runners all inheriting this conversation (N from the framed task, at least two). Do not invent slugs. Spawn more when the arena covers multiple design directions. Same route N times when the work is generation-bound rather than judgment-sensitive.
 4. Assign output paths. Each candidate writes to its own location, per the **separate-before-serializing-shared-state** principle skill. Use a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`.
 
 ## Phase B: Fan out
 
-Spawn all N subagents in one message with `pstack_spawn`, `role: arena-runners`, `run_in_background: true`, `route_index` matching the overlay list when present. Do not send `model`. Follow [`../setup-pstack/references/spawn.md`](../setup-pstack/references/spawn.md). Each gets the task, the path to the shared grounding, its own output path, and instructions to produce both the artifact and a short rationale. The candidate's output directory is the only completion channel: write the required artifact first, then the rationale. Do not invoke `/poteto-mode` from a candidate; it is a parent/session mode and is intentionally not model-invocable in DSH. Treat `send_message` as optional and never wait for it before writing the files.
+Spawn all N subagents in one message with `pstack_spawn`, `role: "arena runners"`, `run_in_background: true`, `route_index` matching the overlay list when present. Do not send `model`. Follow [`../setup-pstack/references/spawn.md`](../setup-pstack/references/spawn.md). Each gets the task, the path to the shared grounding, its own output path, and instructions to produce both the artifact and a short rationale. The candidate's output directory is the only completion channel: write the required artifact first, then the rationale. Do not invoke `/poteto-mode` from a candidate; it is a parent/session mode and is intentionally not model-invocable in DSH. Treat `send_message` as optional and never wait for it before writing the files.
 
 The candidate prompt must state the exact required filenames and output directory. Candidates should create the directory if needed. A final prose response or settlement message is supplemental and is not evidence of completion.
 
@@ -40,7 +40,7 @@ If a candidate fails to produce output, proceed with N-1 and note the dropout in
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, pick a judge from overlay `arena-cross-judge-pool` (a route whose family differs from the parent when the catalog has one). If the pool inherits, the judge inherits this conversation. Spawn one `pstack_spawn` `role: arena-cross-judge-pool`. Instruct no writes. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with the parent's reading in Phase D, not with the candidates themselves. Don't spawn the judge while candidates are still writing.
+After all Phase B candidates complete, pick a judge from overlay `arena cross-judge pool` (a route whose family differs from the parent when the catalog has one). If the pool inherits, the judge inherits this conversation. Spawn one `pstack_spawn` `role: "arena cross-judge pool"`. Instruct no writes. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with the parent's reading in Phase D, not with the candidates themselves. Don't spawn the judge while candidates are still writing.
 
 ## Phase D: Pick a base
 

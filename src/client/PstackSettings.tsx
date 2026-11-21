@@ -29,40 +29,26 @@ export type PstackSettingsProps = Partial<PstackSettingsInjected> & {
   active?: boolean
 }
 
-type GroupKey = 'groupPlaybooks' | 'groupSkills' | 'groupVerify' | 'groupPanels'
+type GroupKey = 'groupDelegates' | 'groupJudgment' | 'groupPanels'
 
 const GROUPS: { id: GroupKey; roles: readonly PstackRole[] }[] = [
-  { id: 'groupPlaybooks', roles: ['feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb', 'judgment-and-prose', 'hardest-tasks'] },
-  { id: 'groupSkills', roles: ['how-explorer', 'how-explainer', 'why-investigators', 'why-synthesizer', 'reflect-tooling', 'reflect-judgment', 'swarm-workers'] },
-  { id: 'groupVerify', roles: ['independent-verifier', 'poteto-agent', 'comment-sicko'] },
-  { id: 'groupPanels', roles: PANEL_ROLES.filter(role => role !== 'how-critics') },
+  { id: 'groupDelegates', roles: ['feature, refactoring', 'bug-fix', 'perf-issue', 'hillclimb'] },
+  { id: 'groupJudgment', roles: ['judgment and prose'] },
+  { id: 'groupPanels', roles: [...PANEL_ROLES] },
 ]
 
 const VISIBLE_ROLES = GROUPS.flatMap(group => group.roles)
 
 const DESCRIPTION_KEY = {
-  feature: 'descFeature',
-  refactoring: 'descRefactoring',
+  'feature, refactoring': 'descFeatureRefactoring',
   'bug-fix': 'descBugFix',
   'perf-issue': 'descPerfIssue',
   hillclimb: 'descHillclimb',
-  'judgment-and-prose': 'descJudgment',
-  'hardest-tasks': 'descHardest',
-  'how-explorer': 'descHowExplorer',
-  'how-explainer': 'descHowExplainer',
-  'why-investigators': 'descWhyInvestigators',
-  'why-synthesizer': 'descWhySynthesizer',
-  'reflect-tooling': 'descReflectTooling',
-  'reflect-judgment': 'descReflectJudgment',
-  'swarm-workers': 'descSwarmWorkers',
-  'independent-verifier': 'descIndependentVerifier',
-  'poteto-agent': 'descPotetoAgent',
-  'comment-sicko': 'descCommentSicko',
-  'how-critics': 'descHowCritics',
-  'arena-runners': 'descArenaRunners',
-  'arena-cross-judge-pool': 'descArenaJudge',
-  'architect-runners': 'descArchitectRunners',
-  'interrogate-reviewers': 'descInterrogateReviewers',
+  'judgment and prose': 'descJudgment',
+  'arena runners': 'descArenaRunners',
+  'arena cross-judge pool': 'descArenaJudge',
+  'swarm workers': 'descSwarmWorkers',
+  'interrogate reviewers': 'descInterrogateReviewers',
 } as const satisfies Record<PstackRole, PstackSettingsKey>
 
 const SETTINGS_CSS = `
