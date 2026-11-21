@@ -14,7 +14,7 @@ Restart that Host and reload the page. Add writes `$DSH_HOME/profiles/web`; it d
 
 ## Pick your models
 
-Open **Settings** (sidebar gear) → **pstack** (nav **pstack 角色** / **pstack roles**).
+Open **Plugins**, select **pstack-dsh**, and click **Configure**.
 
 The page lists only logged-in DSH routes. Save writes `$DSH_HOME/pstack-dsh.json`. A missing file means every role inherits this conversation.
 

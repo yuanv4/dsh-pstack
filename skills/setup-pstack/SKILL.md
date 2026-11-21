@@ -1,6 +1,6 @@
 ---
 name: setup-pstack
-description: Optional pointer. Role routing is configured in DSH Plugins → pstack-dsh → pstack roles. Writes $DSH_HOME/pstack-dsh.json. Use for /setup-pstack, "configure pstack models", or changing pstack's model choices.
+description: Optional pointer. Role routing is configured in DSH Plugins → pstack-dsh → Configure. Writes $DSH_HOME/pstack-dsh.json. Use for /setup-pstack, "configure pstack models", or changing pstack's model choices.
 ---
 
 # Setup pstack
@@ -12,7 +12,7 @@ DSH is a web product. Role routing lives on the **Settings** page, not in a TUI.
 ## Open the editor
 
 1. Open **Plugins** and select the **pstack-dsh** bundle.
-2. Click **pstack roles** in the detail header.
+2. Click **Configure** in the detail header.
 3. Save. That writes `$DSH_HOME/pstack-dsh.json`, the same overlay `pstack_spawn` already reads.
 
 There is no supported Host API to open that section from a slash skill (`packages/client/ui-settings-general/src/client/SettingsRoot.tsx` `openSection` is onboarding-only). Tell the user to click it.
@@ -25,7 +25,7 @@ The page lists models advertised by DSH adapters. See [`references/catalog.md`](
 
 ## If they are not on Web
 
-Say that configuration is Plugins → pstack-dsh → pstack roles on DSH Web. Leave overlay missing so every spawn inherits. Do not invent a second config file.
+Say that configuration is Plugins → pstack-dsh → Configure on DSH Web. Leave overlay missing so every spawn inherits. Do not invent a second config file.
 
 ## Spawn reminder
 

@@ -90,7 +90,7 @@ try {
   await page.getByText('设置', { exact: true }).first().click()
   await page.getByText('插件', { exact: true }).first().click()
   await page.getByRole('button', { name: /^查看 .*pstack/i }).first().click()
-  await page.getByRole('button', { name: 'pstack 角色', exact: true }).click()
+  await page.locator('.pstack-trigger').click()
   const feature = page.locator('#pstack-role-feature')
   await feature.selectOption('deepseek-official::fixture-base')
   await page.locator('#pstack-effort-feature').selectOption('high')
@@ -105,7 +105,7 @@ try {
 
   const beforeManual = requests
   const manualResponse = page.waitForResponse(response => response.url() === `${origin}/plugins/pstack-dsh/settings`)
-  await page.getByRole('button', { name: '刷新模型列表', exact: true }).click()
+  await page.getByRole('button', { name: '刷新', exact: true }).click()
   await manualResponse
   assert.ok(requests > beforeManual)
   assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
@@ -115,7 +115,7 @@ try {
   await notify('llm/models-updated', ['deepseek-official'])
   await hasChoice('deepseek-official::fixture-base', false)
   assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
-  assert.match(await feature.locator('option:checked').innerText(), /暂不可用/)
+  assert.match(await feature.locator('option:checked').innerText(), /已不在列表/)
 
   routes = [base, glm]
   await page.evaluate(() => { window.dispatchEvent(new Event('focus')) })
@@ -138,11 +138,18 @@ try {
   assert.equal(await feature.locator('option[value="pi-zai-coding-cn::stale-fixture"]').count(), 0)
 
   await page.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.locator('.pstack-page').waitFor({ state: 'detached' })
+  await page.locator('.pstack-dialog').waitFor({ state: 'hidden' })
   const afterClose = requests
   await notify()
   await page.waitForTimeout(100)
-  assert.equal(requests, afterClose, 'Closing the role page must unsubscribe')
+  assert.equal(requests, afterClose, 'Closing the role editor must unsubscribe')
+  assert.deepEqual(errors, [])
+
+  // Reopening keeps the unsaved draft instead of throwing away the user's edits.
+  await page.locator('.pstack-trigger').click()
+  assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
+  assert.equal(await page.locator('#pstack-effort-feature').inputValue(), 'high')
+  assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isEnabled(), true)
   assert.deepEqual(errors, [])
   console.log(JSON.stringify({
     url: origin, candidate: candidate !== undefined, simulatedHostNotifications: true,

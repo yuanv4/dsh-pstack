@@ -72,14 +72,14 @@ Use the in-app “Add plugin” entry above for the Desktop App. The public CLI 
 Two steps.
 
 1. 要做事、要严谨，直接用 [`/poteto-mode`](./skills/poteto-mode/SKILL.md)。不用先跑 setup。子 agent 默认继承当前对话的路由。
-2. 只有想给某个角色换已登录的路由时，打开 **插件 → pstack-dsh → pstack 角色**（导航「pstack 角色」/「pstack roles」）。页面写入 `$DSH_HOME/pstack-dsh.json`。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 只是指向那一页的指针。
+2. 只有想给某个角色指定模型时，打开 **插件 → pstack-dsh → 配置**。页面写入 `$DSH_HOME/pstack-dsh.json`。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 只是指向那一页的指针。
 
 1. Use [`/poteto-mode`](./skills/poteto-mode/SKILL.md) for work that needs rigor. No setup required. Children inherit this conversation's route.
-2. To pin a logged-in route per role, open **Plugins → pstack-dsh → pstack roles** (nav label **pstack 角色** / **pstack roles**). The page writes `$DSH_HOME/pstack-dsh.json`. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) is an optional pointer to that page.
+2. To pin a model per role, open **Plugins → pstack-dsh → Configure**. The page writes `$DSH_HOME/pstack-dsh.json`. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) is an optional pointer to that page.
 
-角色模型列表会随 DSH 的登录、退出登录和模型目录变更通知更新，也可点击「刷新模型列表」。刷新只更新候选项，不覆盖尚未保存的角色和 effort；当前选择若失去登录会标为「暂不可用」。新加入 dsh-oauth-login 的 `pi-*` 路由以及 dsh-antigravity-oauth 的 `agy-*` 路由只要已登录且已注册，就会自动纳入，无需在 pstack 里再维护一份提供商名单。
+角色模型列表直接来自 DSH 的模型目录，也会随模型目录变更通知自动更新；也可点「刷新」。刷新只更新候选项，不覆盖尚未保存的角色和 effort。已选模型若不再由 DSH 列出，会标为「已不在列表」。
 
-Model choices follow DSH login/logout and catalog notifications. **Refresh models** also updates the choices without replacing unsaved role/effort edits. A selected route that becomes unavailable stays visibly marked. Newly registered, signed-in `pi-*` and `agy-*` routes are discovered without a second provider allowlist.
+Model choices come straight from the DSH model catalog and also follow catalog notifications; **Refresh** re-reads it without replacing unsaved edits. A chosen model that DSH no longer lists stays visibly marked.
 
 The locally authenticated `cursor` provider is also discovered when
 [dsh-cursor-passthrough](https://github.com/mingzhong15/dsh-cursor-passthrough)
@@ -90,12 +90,12 @@ role to a Cursor subscription model without storing Cursor credentials in DSH.
 后，pstack 也会发现由本机 Cursor CLI 登录的 `cursor` 提供商。这样 DSH 父对话可以把指定角色分配给 Cursor 订阅模型，无需在 DSH 中保存 Cursor 凭据。
 
 For mixed routing, keep the parent conversation on a native DSH provider and
-assign Cursor models to selected roles in **Plugins → pstack-dsh → pstack roles**. `pstack_spawn`
+assign Cursor models to selected roles in **Plugins → pstack-dsh → Configure**. `pstack_spawn`
 then routes those children through Cursor. If the parent itself uses Cursor
 passthrough, it runs through Cursor ACP and cannot call DSH-only tools such as
 `pstack_spawn`; use Cursor's own subagents in that case.
 
-混合路由时，请让父对话使用 DSH 原生提供商，再在 **插件 → pstack-dsh → pstack 角色** 中把部分角色分配给 Cursor 模型。若父对话本身使用 Cursor passthrough，该轮会通过 Cursor ACP 执行，无法调用 `pstack_spawn` 等 DSH 专用工具；此时请使用 Cursor 自带的子代理。
+混合路由时，请让父对话使用 DSH 原生提供商，再在 **插件 → pstack-dsh → 配置** 中把部分角色分配给 Cursor 模型。若父对话本身使用 Cursor passthrough，该轮会通过 Cursor ACP 执行，无法调用 `pstack_spawn` 等 DSH 专用工具；此时请使用 Cursor 自带的子代理。
 
 第一次用可以看 [pstack 指南](./docs/guide/README.md)。
 
@@ -117,7 +117,7 @@ The Poteto 0.15 recommendations are display-only. Existing model and effort assi
 
 装完就能用，不必先打开设置，也不必跑 `/setup-pstack`。
 
-A fresh install is usable without Plugins → pstack-dsh → pstack roles and without `/setup-pstack`.
+A fresh install is usable without Plugins → pstack-dsh → Configure and without `/setup-pstack`.
 
 **模型 / Model.** 不要发送 `model`，除非 live catalog 里已经有这一条。没有 overlay 就继承父对话。不要编造 Cursor 面板 slug（`grok-4.6-fast-xhigh`、`gpt-5.6-sol-max`、`claude-fable-5-thinking-max`、`claude-opus-5-thinking-xhigh`）。
 
@@ -135,9 +135,9 @@ The editor opens from the official `plugins.detail.actions` slot. It lists model
 
 ## 推荐依赖 / Recommended peer
 
-订阅与服务登录（ChatGPT / Claude / Grok / Copilot / OpenRouter / Kimi / Google Antigravity）要出现在 **插件 → pstack-dsh → pstack 角色** 列表里，可按需安装 [dsh-oauth-login](https://github.com/aa2246740/dsh-oauth-login) 或 dsh-antigravity-oauth。不是硬依赖。只用 API key 的用户可以不装。本插件不读写 `~/.pi`、`~/.codex`、`~/.claude`、grok CLI 登录文件。
+订阅与服务登录（ChatGPT / Claude / Grok / Copilot / OpenRouter / Kimi / Google Antigravity）只要在 DSH 里注册了适配器，就会出现在 **插件 → pstack-dsh → 配置** 列表里。pstack 不读任何登录文件。本插件不读写 `~/.pi`、`~/.codex`、`~/.claude`、grok CLI 登录文件。
 
-Subscription logins show up on **Plugins → pstack-dsh → pstack roles** after you install [dsh-oauth-login](https://github.com/aa2246740/dsh-oauth-login) or dsh-antigravity-oauth. They are not required. API-key-only users work without them. This plugin does not read or write official CLI auth files.
+Subscription logins appear on **Plugins → pstack-dsh → Configure** as soon as their adapter is registered in DSH. pstack reads no login files. This plugin does not read or write official CLI auth files.
 
 ```sh
 dsh plugin --profile web add github:aa2246740/dsh-oauth-login#v0.2.7
@@ -145,9 +145,9 @@ dsh plugin --profile web add github:aa2246740/dsh-oauth-login#v0.2.7
 
 ## 这不是 Cursor 插件 / Not the Cursor plugin
 
-这里的角色映射在 **插件 → pstack-dsh → pstack 角色**。官方 Cursor `/setup-pstack` 会写 `~/.cursor/rules`，并用 Cursor 的模型名。不要在 DSH 上跑那份。
+这里的角色映射在 **插件 → pstack-dsh → 配置**。官方 Cursor `/setup-pstack` 会写 `~/.cursor/rules`，并用 Cursor 的模型名。不要在 DSH 上跑那份。
 
-Role mapping in this repo is **Plugins → pstack-dsh → pstack roles**. Official Cursor `/setup-pstack` writes `~/.cursor/rules` and uses Cursor slugs. Do not run it here.
+Role mapping in this repo is **Plugins → pstack-dsh → Configure**. Official Cursor `/setup-pstack` writes `~/.cursor/rules` and uses Cursor slugs. Do not run it here.
 
 ## 工具 / Tools
 
@@ -158,13 +158,13 @@ This plugin registers:
 | 工具 / Tool | 作用 / Role |
 |---|---|
 | `pstack_spawn` | 按角色起 DSH 子 agent。不要传 model / effort。 |
-| `pstack_catalog` | 只列出已登录的 live 路由。 |
+| `pstack_catalog` | 列出 DSH 当前提供的 provider / model 及各自支持的 effort。 |
 | `pstack_overlay_read` / `pstack_overlay_write` | 读写 `$DSH_HOME/pstack-dsh.json`。 |
-| Plugins → pstack-dsh → pstack roles | 官方设置页。保存同一份 overlay。 |
+| Plugins → pstack-dsh → Configure | 角色编辑器。保存同一份 overlay。 |
 
-技能入口：`/poteto-mode`，以及 bundled 的 playbook / principle skills。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 指向设置页。
+技能入口：`/poteto-mode`，以及 bundled 的 playbook / principle skills。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 指向角色编辑器。
 
-Slash entry: `/poteto-mode`, plus the bundled playbook and principle skills. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) points at the Settings page.
+Slash entry: `/poteto-mode`, plus the bundled playbook and principle skills. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) points at the role editor.
 
 ## 开发 / Develop
 
