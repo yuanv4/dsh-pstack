@@ -32,6 +32,7 @@
   "scripts": {
     "build": "tsdown && node scripts/wrap-client.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "sync:skills": "node scripts/fetch-upstream.mjs && node scripts/sync-skills.mjs",
     "test": "node --experimental-strip-types --test tests/*.spec.ts",
     "check": "npm run typecheck && npm run test && npm run build"
   },

@@ -1,6 +1,6 @@
 ---
 name: how
-description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
+description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
 ---
 
 # How
@@ -11,10 +11,10 @@ If the scope is ambiguous, state your interpretation and explore. The user can r
 
 ## 1. Explain
 
-Spawn one `pstack_spawn` child (`role: how-explainer`, `run_in_background: true`) that explores and explains in one pass. `how-explainer` has no overlay line, so the child runs on this conversation's route. Send no `model` or `effort`; follow [`../setup-pstack/references/spawn.md`](../setup-pstack/references/spawn.md).
+Spawn one `pstack_spawn` child with `role: poteto-agent` with a brief that forbids edits that explores and explains in one pass. Give it the user's question and this brief:
 
-Build the brief from [`references/explainer-prompt.md`](references/explainer-prompt.md), filled with the user's question. Tell the child it has read-only access and must not edit files.
+> You are writing an architectural explanation for a senior engineer. Explore the codebase and write an explanation that a senior engineer unfamiliar with this area could read and walk away with a solid mental model. They should understand the architecture well enough to start working in it confidently. You have read-only access to the codebase.
 
 ## 2. Present
 
-Present the child's output. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
+Present the subagent's output. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.

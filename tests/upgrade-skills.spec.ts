@@ -6,7 +6,7 @@ import { createSkillProvider } from '../src/skills-provider.ts'
 
 const root = fileURLToPath(new URL('../skills', import.meta.url))
 
-describe('upstream 0.15 DSH skill availability', () => {
+describe('upstream skill availability', () => {
   it('discovers both new principles and loads their content through the provider', async () => {
     const provider = createSkillProvider(root)
     const skills = await provider.list()
@@ -24,11 +24,11 @@ describe('upstream 0.15 DSH skill availability', () => {
   it('keeps all principle and common workflow skills available to the model', async () => {
     const provider = createSkillProvider(root)
     const names = (await readdir(root)).filter(name => name.startsWith('principle-'))
-    assert.equal(names.length, 23)
+    assert.equal(names.length, 24)
     for (const name of [...names, 'how', 'why', 'unslop', 'typescript-best-practices']) {
       const skill = await provider.get({ name })
       assert.equal(skill?.invocation.modelInvocable, true, name)
     }
-    assert.equal(await provider.get({ name: 'make-bot-ui' }), undefined)
+    assert.equal(await provider.get({ name: 'no-such-skill' }), undefined)
   })
 })

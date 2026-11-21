@@ -2,7 +2,16 @@
 
 This file is the harness map for this port. Read it once when you change a skill or a tool; the skills themselves already speak DSH, so a normal session does not need it.
 
-Upstream source: `cursor/plugins`, `pstack/` subtree, commit [`792440e8`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982) (2026-11-21). Skills were synced from that commit. Re-sync by diffing `pstack/skills/` against `skills/` here and re-applying the mappings below, never by copying Cursor names in.
+## Sources and regeneration
+
+`upstream/pstack/skills/` is a snapshot of `cursor/plugins` `pstack/skills` at commit [`792440e8`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982) (2026-11-21). `skills/` is generated from it, never edited by hand.
+
+- `npm run sync:skills` re-fetches the snapshot at that commit and regenerates `skills/`.
+- `scripts/sync-skills.mjs` holds every rewrite. It fails on any Cursor name that survives, so a missing rule cannot ship.
+- `tests/skills-generated.spec.ts` fails when `skills/` differs from the generator output, so the tree cannot drift between releases.
+- To move to a newer upstream commit, change `UPSTREAM_SHA` in `scripts/fetch-upstream.mjs`, run the sync, and read the diff. New upstream prose may need new rewrite rules.
+
+Three files are owned by this port rather than generated: `skills/setup-pstack/SKILL.md` and its two references, because setup here points at the DSH editor instead of writing a Cursor rules file.
 
 ## Tools
 

@@ -72,12 +72,13 @@ describe('skill call sites', () => {
     assert.match(loaded.content, /pstack_spawn/)
   })
 
-  it('makes Arena artifact handoff authoritative in DSH', async () => {
+  it('keeps the arena runner and judge seats on the DSH role lines', async () => {
     const arena = await readFile(join(SKILLS, 'arena', 'SKILL.md'), 'utf8')
-    assert.match(arena, /only completion channel/)
-    assert.match(arena, /Do not invoke `\/poteto-mode` from a candidate/)
-    assert.match(arena, /`send_message` as optional/)
-    assert.match(arena, /inspect the assigned directory after settlement/)
+    assert.match(arena, /Read every candidate end to end/)
+    assert.match(arena, /If a candidate produces no output, proceed with N-1 and note the dropout\./)
+    assert.match(arena, /The judge is never from the parent's vendor/)
+    assert.match(arena, /`arena runners` line in `\$DSH_HOME\/pstack-dsh\.json`/)
+    assert.match(arena, /`arena cross-judge pool` line in `\$DSH_HOME\/pstack-dsh\.json`/)
   })
 
   it('exposes pstack_spawn without model or effort fields', () => {

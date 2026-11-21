@@ -107,7 +107,7 @@ The other skills are situational. The mode skill uses them when a step needs the
 
 ## 上游 0.15 同步
 
-技能内容同步至 `cursor/plugins` 的 `pstack/` 提交 [`792440e8a560a4a3f63748cdee70491ecd412982`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982)（2026-11-21）。只替换了 Cursor 调用名，保留了 DSH 的工具和角色路由，映射见 [`HARNESS.md`](./HARNESS.md)。
+技能内容来自 `cursor/plugins` 的 `pstack/` 提交 [`792440e8a560a4a3f63748cdee70491ecd412982`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982)（2026-11-21），快照在 `upstream/`，`skills/` 由 `npm run sync:skills` 生成，只做 DSH 调用名与角色路由的替换，映射见 [`HARNESS.md`](./HARNESS.md)。手改 `skills/` 会被漂移测试拦下。
 
 设置页的「Poteto 0.15 推荐」仅供参考，不会替换用户已保存的模型或 effort。`how-critics` 不再显示或启动代理，旧配置仍可读写并保留。不包含 Cursor 专用的 make-bot-ui。
 
