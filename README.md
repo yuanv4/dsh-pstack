@@ -1,184 +1,51 @@
-# official pstack 的 DeepSeek Harness 移植
+# pstack for DeepSeek Harness
 
-## 安装 / Install
+A DSH adaptation of [poteto's pstack](https://github.com/cursor/plugins/tree/main/pstack). The 23 playbooks, the 24 principles, the agents, and the guide are upstream's text, taken from `cursor/plugins` commit [`792440e8`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982) and generated into this package. This repo's own code is the harness call layer plus the role editor.
 
-### 官方 DeepSeek Harness 桌面 App（推荐） / Desktop app (recommended)
+## Install
 
-打开 **设置 → 插件 → 添加插件**，在“包名或地址”中输入：
-
-Open **Settings → Plugins → Add plugin** and enter this in “Package name or address”:
+Open **设置 → 插件 → 添加插件** and enter:
 
 ```text
-github:aa2246740/pstack-dsh#v0.2.5
+github:yuanv4/pstack-dsh
 ```
 
-桌面端插件管理器负责 Desktop profile 和内置包管理器。本发布已包含编译好的 `lib/`；普通使用不需要 clone 或本地构建。若应用提示刷新或重新打开，请按提示完成。
-
-The desktop plugin manager owns the Desktop profile and bundled package manager. This release includes built `lib/`; normal use needs no clone or local build. Follow the app if it asks you to reload or reopen after installation.
-
-### Web CLI
+Or from the CLI, which writes the `web` profile only:
 
 ```sh
-dsh plugin --profile web add github:aa2246740/pstack-dsh#v0.2.5
+dsh plugin --profile web add github:yuanv4/pstack-dsh
 ```
 
-这条官方 CLI 命令只写入 `web` profile，不能修改 Desktop App 的 profile。对于已运行的 Web Host，请重新打开该 Host 一次，再刷新网页。
+Then start a session and run `/poteto-mode`, or any bundled skill from the `/` menu.
 
-This official CLI command writes only the `web` profile; it cannot modify the Desktop App profile. For an already-running Web Host, reopen that Host once and reload the page.
+## What works differently here
 
-面向官方 DeepSeek Harness **0.2.2-rc.4**（tag `dsh-v0.2.2-rc.4`，npm `@deepseek-ai/dsh@0.2.2-rc.4`）。Node `^22.19.0` 或 `>=24`。`@deepseek-ai/dsh-*` peer 范围是 `>=0.2.2-rc.4 <0.2.3`，接受 `0.2.2-rc.4`，拒绝 `0.2.0` 系列与 `0.2.1` alpha。
+DSH's `subagent` tool takes no model and no effort. So a role's model lives in `$DSH_HOME/pstack-dsh.json` and `pstack_spawn` reads it at spawn time. Nine roles can hold a mapping, matching upstream's `setup-pstack` lines. Any other role name a skill uses runs on the conversation's own route.
 
-Targets official DeepSeek Harness **0.2.2-rc.4** (tag `dsh-v0.2.2-rc.4`, npm `@deepseek-ai/dsh@0.2.2-rc.4`). Node `^22.19.0` or `>=24`. The `@deepseek-ai/dsh-*` peer range is `>=0.2.2-rc.4 <0.2.3`: it accepts `0.2.2-rc.4` and rejects the `0.2.0` series and `0.2.1` alphas.
+Open **插件 → pstack-dsh → 配置** to edit the mapping. The page lists every model DSH currently offers, with that model's own reasoning efforts.
 
-**English title.** pstack-dsh, a DeepSeek Harness port of official pstack.
+[`HARNESS.md`](./HARNESS.md) maps every Cursor name to its DSH replacement, lists what is skipped, and records the two deliberate divergences.
 
-**中文.** 这是 official pstack 的 DeepSeek Harness 移植。玩法和原则来自 poteto 的 official pstack；只有调用层换成 DSH。
+## Repository layout
 
-**English.** This is a DeepSeek Harness port of official pstack. Playbooks and principles are poteto's. Only the harness call layer is swapped.
-
-## 来源 / Credits
-
-23 个玩法（playbooks）和 23 条原则（principles）是 [poteto](https://x.com/poteto) 写的，出自 [official pstack](https://github.com/cursor/plugins/tree/main/pstack)。本仓库是 DeepSeek Harness 移植（[aa2246740/pstack-dsh](https://github.com/aa2246740/pstack-dsh)）。调用层用 [HARNESS.md](./HARNESS.md) 里的 DSH 工具名。玩法和原则不是本仓库写的。
-
-The 23 playbooks and 23 principles are [poteto](https://x.com/poteto)'s, from [official pstack](https://github.com/cursor/plugins/tree/main/pstack). This repository is the DeepSeek Harness port ([aa2246740/pstack-dsh](https://github.com/aa2246740/pstack-dsh)). Harness calls use DSH tools named in [HARNESS.md](./HARNESS.md). This port did not author those playbooks or principles.
-
-## 本地目录 / Local checkout
-
-已经 clone 到本机时（开发/本地测试）：
-
-A local checkout (development/local testing):
-
-```sh
-git clone https://github.com/aa2246740/pstack-dsh.git
-dsh plugin --profile web add ./pstack-dsh
-```
-
-然后同样重启 Host，再刷新页面。
-
-Then restart that Host and reload the page.
-
-```sh
-dsh plugin --profile web remove pstack-dsh
-```
-
-Desktop App 请使用上面的应用内“添加插件”入口。官方 CLI 只管理 `web` profile。
-
-Use the in-app “Add plugin” entry above for the Desktop App. The public CLI manages the `web` profile only.
-
-## 开始用 / Get started
-
-两步。
-
-Two steps.
-
-1. 要做事、要严谨，直接用 [`/poteto-mode`](./skills/poteto-mode/SKILL.md)。不用先跑 setup。子 agent 默认继承当前对话的路由。
-2. 只有想给某个角色指定模型时，打开 **插件 → pstack-dsh → 配置**。页面写入 `$DSH_HOME/pstack-dsh.json`。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 只是指向那一页的指针。
-
-1. Use [`/poteto-mode`](./skills/poteto-mode/SKILL.md) for work that needs rigor. No setup required. Children inherit this conversation's route.
-2. To pin a model per role, open **Plugins → pstack-dsh → Configure**. The page writes `$DSH_HOME/pstack-dsh.json`. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) is an optional pointer to that page.
-
-角色模型列表直接来自 DSH 的模型目录，也会随模型目录变更通知自动更新；也可点「刷新」。刷新只更新候选项，不覆盖尚未保存的角色和 effort。已选模型若不再由 DSH 列出，会标为「已不在列表」。
-
-Model choices come straight from the DSH model catalog and also follow catalog notifications; **Refresh** re-reads it without replacing unsaved edits. A chosen model that DSH no longer lists stays visibly marked.
-
-The locally authenticated `cursor` provider is also discovered when
-[dsh-cursor-passthrough](https://github.com/mingzhong15/dsh-cursor-passthrough)
-is installed and exposes live models. This lets a DSH parent assign a pstack
-role to a Cursor subscription model without storing Cursor credentials in DSH.
-
-安装并启用 [dsh-cursor-passthrough](https://github.com/mingzhong15/dsh-cursor-passthrough)
-后，pstack 也会发现由本机 Cursor CLI 登录的 `cursor` 提供商。这样 DSH 父对话可以把指定角色分配给 Cursor 订阅模型，无需在 DSH 中保存 Cursor 凭据。
-
-For mixed routing, keep the parent conversation on a native DSH provider and
-assign Cursor models to selected roles in **Plugins → pstack-dsh → Configure**. `pstack_spawn`
-then routes those children through Cursor. If the parent itself uses Cursor
-passthrough, it runs through Cursor ACP and cannot call DSH-only tools such as
-`pstack_spawn`; use Cursor's own subagents in that case.
-
-混合路由时，请让父对话使用 DSH 原生提供商，再在 **插件 → pstack-dsh → 配置** 中把部分角色分配给 Cursor 模型。若父对话本身使用 Cursor passthrough，该轮会通过 Cursor ACP 执行，无法调用 `pstack_spawn` 等 DSH 专用工具；此时请使用 Cursor 自带的子代理。
-
-第一次用可以看 [pstack 指南](./docs/guide/README.md)。
-
-New here? The [pstack guide](./docs/guide/README.md) walks through a first real task.
-
-其余技能是按需的。`/poteto-mode` 会在步骤需要时自己去调。
-
-The other skills are situational. The mode skill uses them when a step needs them.
-
-## 上游 0.15 同步
-
-技能内容来自 `cursor/plugins` 的 `pstack/` 提交 [`792440e8a560a4a3f63748cdee70491ecd412982`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982)（2026-11-21），快照在 `upstream/`，`skills/` 由 `npm run sync:skills` 生成，只做 DSH 调用名与角色路由的替换，映射见 [`HARNESS.md`](./HARNESS.md)。手改 `skills/` 会被漂移测试拦下。
-
-设置页的「Poteto 0.15 推荐」仅供参考，不会替换用户已保存的模型或 effort。`how-critics` 不再显示或启动代理，旧配置仍可读写并保留。不包含 Cursor 专用的 make-bot-ui。
-
-The Poteto 0.15 recommendations are display-only. Existing model and effort assignments remain unchanged. The retired `how-critics` setting stays readable for compatibility but is hidden and never starts an agent. Cursor-only make-bot-ui is not included.
-
-## 默认模型与 effort / Defaults
-
-装完就能用，不必先打开设置，也不必跑 `/setup-pstack`。
-
-A fresh install is usable without Plugins → pstack-dsh → Configure and without `/setup-pstack`.
-
-**模型 / Model.** 不要发送 `model`，除非 live catalog 里已经有这一条。没有 overlay 就继承父对话。不要编造 Cursor 面板 slug（`grok-4.6-fast-xhigh`、`gpt-5.6-sol-max`、`claude-fable-5-thinking-max`、`claude-opus-5-thinking-xhigh`）。
-
-Do not send `model` unless that pair was detected live. Missing overlay inherits the parent. Do not invent Cursor panel slugs.
-
-**effort.** 只提供该路由 `resolveModelInfo().reasoning.efforts` 列出的 id。没有 effort 字段就省略。skill 从不在 spawn 上发送 `reasoning_effort` 或 `thinking`。官方 `subagent` schema 没有这些字段。角色 effort 写在 overlay 里，由 `agent/request` 落到 `LlmCallConfig.reasoningEffort`。
-
-Effort is only the ids that route actually accepts. If the route has none, omit it. Skills never send `reasoning_effort` or `thinking` on spawn. Official `subagent` has no such field. Role effort lives in the overlay and is applied on `agent/request`.
-
-**设置 / Settings.** 配置入口使用插件详情页的 `plugins.detail.actions`。模型列表以 DSH 模型目录为准；effort 只列出该路由 live `resolveModelInfo().reasoning.efforts`。空列表就是继承父对话。保存写同一份 overlay，不是第二份配置。
-
-The editor opens from the official `plugins.detail.actions` slot. It lists models advertised by the DSH runtime. Effort options are that route's live `resolveModelInfo().reasoning.efforts`. An empty list means inherit the parent. Save writes the same overlay, not a second file.
-
-模型目录以 DSH 注册适配器返回的模型为准。pstack 不再检查提供商前缀、API Key 或 OAuth 文件。空目录就是继承父对话。
-
-## 推荐依赖 / Recommended peer
-
-订阅与服务登录（ChatGPT / Claude / Grok / Copilot / OpenRouter / Kimi / Google Antigravity）只要在 DSH 里注册了适配器，就会出现在 **插件 → pstack-dsh → 配置** 列表里。pstack 不读任何登录文件。本插件不读写 `~/.pi`、`~/.codex`、`~/.claude`、grok CLI 登录文件。
-
-Subscription logins appear on **Plugins → pstack-dsh → Configure** as soon as their adapter is registered in DSH. pstack reads no login files. This plugin does not read or write official CLI auth files.
-
-```sh
-dsh plugin --profile web add github:aa2246740/dsh-oauth-login#v0.2.7
-```
-
-## 这不是 Cursor 插件 / Not the Cursor plugin
-
-这里的角色映射在 **插件 → pstack-dsh → 配置**。官方 Cursor `/setup-pstack` 会写 `~/.cursor/rules`，并用 Cursor 的模型名。不要在 DSH 上跑那份。
-
-Role mapping in this repo is **Plugins → pstack-dsh → Configure**. Official Cursor `/setup-pstack` writes `~/.cursor/rules` and uses Cursor slugs. Do not run it here.
-
-## 工具 / Tools
-
-本插件注册：
-
-This plugin registers:
-
-| 工具 / Tool | 作用 / Role |
+| Path | Owner |
 |---|---|
-| `pstack_spawn` | 按角色起 DSH 子 agent。不要传 model / effort。 |
-| `pstack_catalog` | 列出 DSH 当前提供的 provider / model 及各自支持的 effort。 |
-| `pstack_overlay_read` / `pstack_overlay_write` | 读写 `$DSH_HOME/pstack-dsh.json`。 |
-| Plugins → pstack-dsh → Configure | 角色编辑器。保存同一份 overlay。 |
+| `upstream/pstack/` | Snapshot of `cursor/plugins` at the pinned commit. Never edited by hand. |
+| `skills/`, `agents/`, `docs/guide/` | Generated from that snapshot. Never edited by hand. |
+| `skills/setup-pstack/` | This repo owns it: it points at the DSH editor instead of writing a Cursor rules file. |
+| `src/`, `lib/` | This repo's code: `pstack_spawn`, the overlay, the model catalog, the editor UI. |
+| `HARNESS.md` | The harness map above. |
 
-技能入口：`/poteto-mode`，以及 bundled 的 playbook / principle skills。[`/setup-pstack`](./skills/setup-pstack/SKILL.md) 指向角色编辑器。
-
-Slash entry: `/poteto-mode`, plus the bundled playbook and principle skills. [`/setup-pstack`](./skills/setup-pstack/SKILL.md) points at the role editor.
-
-## 开发 / Develop
+## Working on this repo
 
 ```sh
-pnpm install
-pnpm test
+npm run sync:skills   # re-fetch the pinned upstream commit and regenerate the trees
+npm test              # typecheck is separate: npm run typecheck
+npm run build         # esbuild into lib/
 ```
 
-不要对用户正在用的 DSH Host 发 `--force`，也不要杀它。对照 [TEST-PLAN.md](./TEST-PLAN.md)。
+`scripts/sync-skills.mjs` holds every DSH rewrite and fails on any Cursor name that survives it. `tests/skills-generated.spec.ts` fails when a generated file drifts, so hand edits do not survive a commit. To move to a newer upstream, change `UPSTREAM_SHA` in `scripts/fetch-upstream.mjs`, run the sync, and read the diff.
 
-Do not `--force` or kill a user's live DSH Host. See [TEST-PLAN.md](./TEST-PLAN.md).
+## License
 
-## 许可 / License
-
-MIT。玩法与原则：Lauren Tan。DSH 移植打包：aa2246740。见 [LICENSE](./LICENSE)。
-
-MIT. Playbooks and principles: Lauren Tan. DSH port packaging: aa2246740. See [LICENSE](./LICENSE).
+MIT. Playbooks and principles are poteto's, from `cursor/plugins`. This adaptation is not endorsed by them.

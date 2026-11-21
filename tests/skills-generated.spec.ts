@@ -3,43 +3,60 @@ import { readFile, readdir } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { buildSkills, DEST, SOURCE } from '../scripts/sync-skills.mjs'
+import { buildSkills, TREES } from '../scripts/sync-skills.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 async function walk(dir: string): Promise<string[]> {
-  const out = []
-  for (const name of await readdir(dir, { withFileTypes: true })) {
-    const full = join(dir, name.name)
-    if (name.isDirectory()) out.push(...await walk(full))
-    else if (name.name.endsWith('.md')) out.push(full)
+  const out: string[] = []
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...await walk(full))
+    else out.push(full)
   }
   return out
 }
 
-describe('generated skills', () => {
-  it('rewrites every upstream file without leaving a Cursor name', () => {
-    const { skills, failures } = buildSkills()
+const OWNED = new Set([
+  'skills/setup-pstack/SKILL.md',
+  'skills/setup-pstack/references/spawn.md',
+  'skills/setup-pstack/references/catalog.md',
+])
+
+describe('generated trees', () => {
+  it('rewrites every mirrored file without leaving a Cursor name', () => {
+    const { files, failures } = buildSkills()
     assert.deepEqual(failures, [])
-    assert.ok(skills.size > 100)
+    assert.ok(files.size > 200)
   })
 
-  it('matches what is committed, so the tree cannot drift', async () => {
-    const { skills } = buildSkills()
-    const onDisk = new Set((await walk(join(ROOT, DEST))).map(file => relative(join(ROOT, DEST), file).replaceAll('\\', '/')))
-    // Port-owned files are not generated; everything else must match byte for byte.
-    const owned = new Set(['setup-pstack/SKILL.md', 'setup-pstack/references/spawn.md', 'setup-pstack/references/catalog.md'])
-    for (const [target, text] of skills as Map<string, string>) {
-      assert.ok(onDisk.has(target), `${target} is missing from skills/`)
-      assert.equal(await readFile(join(ROOT, DEST, target), 'utf8'), text, `${target} differs from its generated form`)
+  it('matches what is committed, so a tree cannot drift', async () => {
+    const { files } = buildSkills()
+    for (const [target, value] of files) {
+      if (typeof value === 'string') {
+        assert.equal(await readFile(join(ROOT, target), 'utf8'), value, `${target} differs from its generated form`)
+      } else {
+        const committed = await readFile(join(ROOT, target))
+        const source = await readFile(join(ROOT, value.copyFrom))
+        assert.deepEqual(committed, source, `${target} differs from its snapshot`)
+      }
     }
-    for (const target of onDisk) {
-      assert.ok(skills.has(target) || owned.has(target), `${target} is not generated and not port-owned`)
+  })
+
+  it('keeps no hand-written file that the generator does not own', async () => {
+    const { files } = buildSkills()
+    const generated = new Set(files.keys())
+    for (const { dest } of TREES) {
+      for (const file of await walk(join(ROOT, dest))) {
+        const target = relative(join(ROOT), file).replaceAll('\\', '/')
+        assert.ok(generated.has(target) || OWNED.has(target), `${target} is neither generated nor port-owned`)
+      }
     }
   })
 
   it('keeps the upstream snapshot for the generator', async () => {
-    const files = await walk(join(ROOT, SOURCE))
-    assert.ok(files.length > 100)
+    for (const { source } of TREES) {
+      assert.ok((await walk(join(ROOT, source))).length > 0, source)
+    }
   })
 })

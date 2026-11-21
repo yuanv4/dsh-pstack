@@ -4,14 +4,19 @@ This file is the harness map for this port. Read it once when you change a skill
 
 ## Sources and regeneration
 
-`upstream/pstack/skills/` is a snapshot of `cursor/plugins` `pstack/skills` at commit [`792440e8`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982) (2026-11-21). `skills/` is generated from it, never edited by hand.
+`upstream/pstack/` is a snapshot of `cursor/plugins` at commit [`792440e8`](https://github.com/cursor/plugins/commit/792440e8a560a4a3f63748cdee70491ecd412982) (2026-11-21), holding `skills/`, `agents/`, and `docs/guide/`. Everything under `skills/`, `agents/`, and `docs/guide/` is generated from it, never edited by hand.
 
-- `npm run sync:skills` re-fetches the snapshot at that commit and regenerates `skills/`.
-- `scripts/sync-skills.mjs` holds every rewrite. It fails on any Cursor name that survives, so a missing rule cannot ship.
-- `tests/skills-generated.spec.ts` fails when `skills/` differs from the generator output, so the tree cannot drift between releases.
+- `npm run sync:skills` re-fetches that commit and regenerates all three trees.
+- `scripts/sync-skills.mjs` holds every rewrite for `skills/` and `agents/`. It fails on any Cursor name that survives, so a missing rule cannot ship.
+- `tests/skills-generated.spec.ts` fails when a generated file differs from the generator output, so the tree cannot drift between releases.
+- `docs/guide/` is copied unchanged. It documents Cursor first, and rewriting it here would invent documentation. Read this file for the DSH differences.
 - To move to a newer upstream commit, change `UPSTREAM_SHA` in `scripts/fetch-upstream.mjs`, run the sync, and read the diff. New upstream prose may need new rewrite rules.
 
-Three files are owned by this port rather than generated: `skills/setup-pstack/SKILL.md` and its two references, because setup here points at the DSH editor instead of writing a Cursor rules file.
+Three skill files are owned by this port rather than generated: `skills/setup-pstack/SKILL.md` and its two references, because setup here points at the DSH editor instead of writing a Cursor rules file.
+
+## Skills
+
+A skill's frontmatter decides how it is reached. The port keeps `how`, `why`, `unslop`, `technical-writing`, `no-comments`, `typescript-best-practices`, and every `principle-*` skill model-invocable, because upstream's prose tells the model to load them and DSH's `skill` tool is the sanctioned way. Upstream marks them user-only. Everything else keeps upstream's flag.
 
 ## Tools
 
@@ -60,10 +65,6 @@ Consequence to keep in mind when editing skills: upstream can raise one delegate
 | `.cursor/skills/`, `~/.cursor/skills/` | `<workspace>/skills/`, `~/.dsh/skills/` |
 | `~/.cursor/rules/pstack-models.mdc` | `$DSH_HOME/pstack-dsh.json` |
 | `~/.cursor/projects/<slug>/agent-transcripts/` | `$DSH_HOME/sessions/<workspace-slug>/<session>/session.v4.jsonl.zstd` |
-
-## Skills
-
-A skill's frontmatter decides how it is reached. The port keeps `how` and `why` model-invocable, because `poteto-mode`'s non-negotiables tell the model to route there itself; upstream marks them user-only. `architect`, `reflect`, `arena`, `swarm`, `interrogate`, and the playbooks stay user-invoked, as upstream has them.
 
 ## Skipped in DSH
 

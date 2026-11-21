@@ -1,3 +1,5 @@
-export declare const SOURCE: string
-export declare const DEST: string
-export declare function buildSkills(): { skills: Map<string, string>; failures: string[] }
+export declare const TREES: ReadonlyArray<{ source: string; dest: string; mode: 'rewrite' | 'verbatim' }>
+export declare function buildSkills(): {
+  files: Map<string, string | { copyFrom: string }>
+  failures: string[]
+}

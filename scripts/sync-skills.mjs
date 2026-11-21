@@ -1,20 +1,25 @@
 /**
- * Generate `skills/` from the `upstream/` snapshot.
+ * Generate the mirrored trees from the `upstream/` snapshot.
  *
- * Every generated file is upstream's text. The only changes are the rewrites
- * below, which exist because this harness has no `Task` tool, no per-call model,
- * and no Cursor-only plugins. Files this port owns outright are listed in SKIP.
+ * `skills/` and `agents/` get the DSH rewrites below, because this harness has
+ * no `Task` tool, no per-call model, and no Cursor-only plugins. `docs/guide/` is
+ * upstream's guide copied unchanged: it documents Cursor first, and rewriting it
+ * here would invent documentation. `HARNESS.md` states the differences.
  *
- * `node scripts/sync-skills.mjs` writes the tree. The build fails on any Cursor
- * name that survives the rewrite, and `tests/skills-generated.spec.ts` fails when
- * `skills/` drifts from this function.
+ * Run `node scripts/sync-skills.mjs`. The build fails on any Cursor name that
+ * survives a rewrite, and `tests/skills-generated.spec.ts` fails when the tree
+ * drifts from this function.
  */
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { dirname, relative } from 'node:path'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-export const SOURCE = 'upstream/pstack/skills'
-export const DEST = 'skills'
+export const TREES = [
+  { source: 'upstream/pstack/skills', dest: 'skills', mode: 'rewrite' },
+  { source: 'upstream/pstack/agents', dest: 'agents', mode: 'rewrite' },
+  { source: 'upstream/pstack/docs/guide', dest: 'docs/guide', mode: 'verbatim' },
+]
 
 /** Files this port owns: they describe the DSH editor, not a Cursor rules file. */
 const SKIP = new Set([
@@ -30,13 +35,18 @@ const REWRITES = [
   [/\.cursor\/skills\//g, '<workspace>/skills/'],
   [/~\/\.cursor\/projects\/[^\s`),]*/g, '$DSH_HOME/sessions/<workspace-slug>/'],
   [/`\.cursor\/worktrees\/[^`]*`/g, '`a sibling path`'],
+  [/`?~\/\.cursor\/plugins\/`?/g, '`~/.dsh/skills/`'],
   // Subagent fields.
   [/subagent_type: "general-purpose"/g, 'role: poteto-agent'],
   [/subagent_type: generalPurpose/g, 'role: poteto-agent'],
   [/subagent_type: "([a-z0-9-]+)"/g, 'role: $1'],
   [/subagent_type: ([a-z0-9-]+)/g, 'role: $1'],
+  // Agent frontmatter fields DSH does not read; persona routing comes from the overlay.
+  [/^model: .*\n/m, ''],
+  [/^is_background: true\n/m, ''],
   // Tools.
   [/`Task`/g, '`pstack_spawn`'],
+  [/\bTask spawns?\b/g, '`pstack_spawn`'],
   [/\bTask subagents?\b/g, '`pstack_spawn` child'],
   [/\bTask calls?\b/g, '`pstack_spawn` call'],
   [/\bTask tool\b/g, '`pstack_spawn`'],
@@ -101,7 +111,7 @@ const LINE_RULES = [
   [
     /^## Writing the reply$/m,
     [
-      "## Harness",
+      '## Harness',
       '',
       'Read [`../../HARNESS.md`](../../HARNESS.md) before changing a skill or a call site. Three rules matter here.',
       '',
@@ -145,42 +155,69 @@ function walk(dir) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name)
     if (statSync(full).isDirectory()) out.push(...walk(full))
-    else if (name.endsWith('.md')) out.push(full)
+    else out.push(full)
   }
   return out
 }
 
-/** Build the generated tree in memory: relative path to file text. */
+/**
+ * Build every generated tree in memory: output path to either file text, or
+ * `{ copyFrom }` for a binary or non-Markdown asset copied byte for byte.
+ */
 export function buildSkills() {
-  const skills = new Map()
+  const files = new Map()
   const failures = []
-  for (const file of walk(SOURCE)) {
-    const target = relative(SOURCE, file).replaceAll('\\', '/')
-    if (SKIP.has(target)) continue
-    let text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n').replace(/\n+$/, '\n')
-    for (const [pattern, value] of REWRITES) text = text.replace(pattern, value)
-    for (const [from, to] of LITERALS) text = text.split(from).join(to)
-    for (const [pattern, value] of LINE_RULES) text = text.replace(pattern, value)
-    if (MODEL_INVOCABLE.test(target)) text = text.replace(/^disable-model-invocation: true\n/m, '')
-    for (const [label, pattern] of LEFTOVER) {
-      if (pattern.test(text)) failures.push(`${target}: ${label}`)
+  for (const { source, dest, mode } of TREES) {
+    for (const file of walk(source)) {
+      const rel = relative(source, file).replaceAll('\\', '/')
+      if (!file.endsWith('.md')) {
+        files.set(`${dest}/${rel}`, { copyFrom: file })
+        continue
+      }
+      if (mode === 'rewrite' && SKIP.has(rel)) continue
+      let text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n').replace(/\n+$/, '\n')
+      if (mode === 'rewrite') {
+        for (const [pattern, value] of REWRITES) text = text.replace(pattern, value)
+        for (const [from, to] of LITERALS) text = text.split(from).join(to)
+        for (const [pattern, value] of LINE_RULES) text = text.replace(pattern, value)
+        if (MODEL_INVOCABLE.test(rel)) text = text.replace(/^disable-model-invocation: true\n/m, '')
+        for (const [label, pattern] of LEFTOVER) {
+          if (pattern.test(text)) failures.push(`${dest}/${rel}: ${label}`)
+        }
+      }
+      files.set(`${dest}/${rel}`, text)
     }
-    skills.set(target, text)
   }
-  return { skills, failures }
+  return { files, failures }
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { skills, failures } = buildSkills()
-  for (const [target, text] of skills) {
-    const out = join(DEST, target)
-    mkdirSync(dirname(out), { recursive: true })
-    writeFileSync(out, text)
-  }
-  console.log(`generated ${skills.size} files into ${DEST}`)
+  const { files, failures } = buildSkills()
   if (failures.length > 0) {
-    console.error(`\n${failures.length} Cursor names survived the rewrite:`)
+    console.error(`${failures.length} Cursor names survived the rewrite:`)
     for (const row of failures) console.error('  ' + row)
     process.exit(1)
   }
+  // The mirrored trees are generated wholesale: anything a previous upstream
+  // shipped and this one does not is stale, so remove it.
+  const keep = new Set(files.keys())
+  let pruned = 0
+  for (const { dest } of TREES) {
+    for (const file of walk(dest)) {
+      const target = relative('.', file).replaceAll('\\', '/')
+      if (keep.has(target) || SKIP.has(target.slice(dest.length + 1))) continue
+      unlinkSync(file)
+      pruned += 1
+    }
+  }
+  let copied = 0
+  for (const [target, value] of files) {
+    mkdirSync(dirname(target), { recursive: true })
+    if (typeof value === 'string') writeFileSync(target, value)
+    else {
+      copyFileSync(value.copyFrom, target)
+      copied += 1
+    }
+  }
+  console.log(`generated ${files.size - copied} text files and ${copied} copied assets, pruned ${pruned} stale files`)
 }

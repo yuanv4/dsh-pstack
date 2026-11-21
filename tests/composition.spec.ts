@@ -31,10 +31,11 @@ describe('bundle composition', () => {
     assert.match(patch, /id:\s*pstack-dsh/)
     assert.match(patch, /name:\s*pstack-dsh/)
     assert.match(readme, /设置 → 插件 → 添加插件/)
-    const tag = `v${pkg.version.split('-')[0]}`.replace(/\./g, '\\.')
-    assert.match(readme, new RegExp(`github:aa2246740/pstack-dsh#${tag}`))
-    assert.match(readme, new RegExp(`dsh plugin --profile web add github:aa2246740/pstack-dsh#${tag}`))
+    assert.match(readme, /github:yuanv4\/pstack-dsh/)
+    assert.match(readme, /dsh plugin --profile web add github:yuanv4\/pstack-dsh/)
     assert.doesNotMatch(readme, /\bdshx\b|\bmy-plugins\b/i)
+    const manifest = await readFile(join(root, 'package.json'), 'utf8')
+    assert.doesNotMatch(manifest, /\btsdown\b|\bdshx\.yml\b/)
   })
 
   it('declares a web client half on plugins.detail.actions, not a second config file', async () => {

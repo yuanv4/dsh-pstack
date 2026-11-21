@@ -1,24 +1,20 @@
 {
   "name": "pstack-dsh",
-  "description": "DeepSeek Harness port of official pstack. Playbooks and principles are poteto's; only the harness call layer is rewritten.",
-  "version": "0.2.5-codex.1",
+  "description": "DeepSeek Harness adaptation of poteto's pstack. Skills and agents are generated from cursor/plugins; only the harness call layer is this repo's own code.",
+  "version": "0.3.0",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
     "lib",
-    "src",
     "skills",
     "agents",
+    "docs",
     "cordis.patch.yml",
-    "cordis.yml",
-    "dshx.yml",
     "HARNESS.md",
     "README.md",
-    "TEST-PLAN.md",
-    "LICENSE",
-    "docs"
+    "LICENSE"
   ],
   "exports": {
     ".": {
@@ -30,7 +26,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsdown && node scripts/wrap-client.mjs",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "sync:skills": "node scripts/fetch-upstream.mjs && node scripts/sync-skills.mjs",
     "test": "node --experimental-strip-types --test tests/*.spec.ts",
@@ -42,9 +38,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aa2246740/pstack-dsh.git"
+    "url": "git+https://github.com/yuanv4/pstack-dsh.git"
   },
-  "homepage": "https://github.com/aa2246740/pstack-dsh",
+  "homepage": "https://github.com/yuanv4/pstack-dsh",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -135,8 +131,8 @@
     "@types/semver": "^7.7.0",
     "@types/react": "~18.3.1",
     "react": "^18.2.0",
+    "esbuild": "^0.27.3",
     "semver": "^7.7.2",
-    "tsdown": "^0.22.2",
     "typescript": "^6.0.3"
   }
 }
