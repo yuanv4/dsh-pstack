@@ -37,16 +37,16 @@ try {
   assert.deepEqual(catalog.routes.map(r => [r.provider, r.model, r.efforts[0].id]), [
     ['codex', model, 'high'], ['private-proxy', model, 'high'],
   ])
-  const overlayFor = reasoningEffort => ({ version: 1, roles: { feature: { inherit: false, routes: [{ provider: 'codex', model, reasoningEffort }] } } })
+  const overlayFor = reasoningEffort => ({ version: 1, roles: { 'feature, refactoring': { inherit: false, routes: [{ provider: 'codex', model, reasoningEffort }] } } })
   await assert.rejects(run('pstack_overlay_write', { overlay: overlayFor('low') }), /not accepted/)
   const { overlay } = await run('pstack_overlay_write', { overlay: overlayFor('high') })
-  assert.deepEqual(overlay.roles.feature, overlayFor('high').roles.feature)
-  assert.deepEqual((await run('pstack_overlay_read')).overlay.roles.feature, overlay.roles.feature)
+  assert.deepEqual(overlay.roles['feature, refactoring'], overlayFor('high').roles['feature, refactoring'])
+  assert.deepEqual((await run('pstack_overlay_read')).overlay.roles['feature, refactoring'], overlay.roles['feature, refactoring'])
   const task = { role: 'feature', description: 'Verify routed child', prompt: 'Reply with ok.' }
-  assert.deepEqual(await run('pstack_spawn', task), { kind: 'activation', subagentId: 'child-1', name: 'agent-1', role: 'feature', inherit: false })
+  assert.deepEqual(await run('pstack_spawn', task), { kind: 'activation', subagentId: 'child-1', name: 'agent-1', role: 'feature, refactoring', inherit: false })
   assert.deepEqual(requests[0].agentOptions, { provider: 'codex', model, reasoningEffort: 'high' })
   assert.equal(requests[0].delivery, 'parent')
-  assert.equal((await run('pstack_spawn', { ...task, role: 'architect-runners', run_in_background: false })).output, 'ok')
+  assert.equal((await run('pstack_spawn', { ...task, role: 'how-explorer', run_in_background: false })).output, 'ok')
   assert.equal(requests[1].delivery, 'caller')
   assert.equal('agentOptions' in requests[1], false)
   signedIn = false

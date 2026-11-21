@@ -101,6 +101,16 @@ If `pstack_spawn` is missing, fall back to official `subagent` with only `descri
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. Fire a fresh subagent with consolidated scope rather than trusting a "done" summary. A second opinion is the same prompt with `role: "swarm workers"` (a different overlay route when setup mapped one). Agreement is high-signal.
 
+## Harness
+
+Read [`../../HARNESS.md`](../../HARNESS.md) before changing a skill or a call site. Three rules matter here.
+
+- `pstack_spawn` takes only `description`, `prompt`, `role`, `run_in_background`, and `route_index`. Model and effort come from the role mapping in `$DSH_HOME/pstack-dsh.json`, never from the call.
+- Nine roles can hold a mapping. Any other role name, including `how-explainer` and `poteto-agent`, runs on this conversation's route.
+- A step that needs Cursor Automations, Bugbot, a cloud agent, or a plugin-provided tooling skill DSH does not ship gets one line, `Skipped in DSH: <step>. <reason>.`, and the work continues.
+
+Never add a model, provider, or effort argument to a spawn call, and never write a rules file under a Cursor or Claude config path.
+
 ## Writing the reply
 
 Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns.
