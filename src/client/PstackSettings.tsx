@@ -86,7 +86,7 @@ const SETTINGS_CSS = `
 
 .pstack-page .pstack-tools {
   position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
-  padding:10px 16px; background:var(--dsw-alias-bg-module-platform);
+  padding:10px 16px; background:var(--dsw-alias-bg-layer-2);
   border-bottom:0.5px solid var(--dsw-alias-border-l2);
 }
 .pstack-page .pstack-search {
@@ -151,7 +151,7 @@ const SETTINGS_CSS = `
   position:sticky; bottom:0; z-index:2; margin-top:auto;
   display:flex; flex-wrap:wrap; gap:10px; align-items:center;
   justify-content:space-between; padding:10px 16px;
-  background:var(--dsw-alias-bg-module-platform); border-top:0.5px solid var(--dsw-alias-border-l2);
+  background:var(--dsw-alias-bg-layer-2); border-top:0.5px solid var(--dsw-alias-border-l2);
 }
 .pstack-page .pstack-status { display:flex; align-items:center; gap:8px; min-width:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 .pstack-page .pstack-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--dsw-alias-state-idle-primary); }

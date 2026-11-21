@@ -34,12 +34,15 @@ const CHROME_CSS = `
 .pstack-trigger:active { background:var(--dsw-alias-interactive-bg-active); }
 
 .pstack-dialog {
-  display:flex; flex-direction:column; gap:0; box-sizing:border-box; padding:0; overflow:hidden;
+  box-sizing:border-box; padding:0; overflow:hidden;
   width:min(860px, calc(100vw - 32px)); max-height:calc(100dvh - 48px);
   border:0; border-radius:var(--dsw-radius-panel, 16px);
   box-shadow:var(--dsw-elevation-prominent, 0 12px 32px rgb(0 0 0 / 24%));
   background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-primary);
 }
+/* Author display beats the UA rule for closed dialogs, so scope flex to the open state. */
+.pstack-dialog[open] { display:flex; flex-direction:column; gap:0; }
+.pstack-dialog:not([open]) { display:none; }
 .pstack-dialog::backdrop { background:var(--dsw-alias-bg-mask-1, rgb(0 0 0 / 40%)); backdrop-filter:var(--dsw-mask-blur, blur(2px)); }
 .pstack-dialog-head {
   flex:none; display:flex; align-items:flex-start; gap:12px;

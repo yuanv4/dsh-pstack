@@ -90,7 +90,10 @@ try {
   await page.getByText('设置', { exact: true }).first().click()
   await page.getByText('插件', { exact: true }).first().click()
   await page.getByRole('button', { name: /^查看 .*pstack/i }).first().click()
+  // The author display rule must not resurrect a closed <dialog>.
+  assert.equal(await page.locator('.pstack-dialog').isVisible(), false, 'closed dialog stays hidden')
   await page.locator('.pstack-trigger').click()
+  assert.equal(await page.locator('.pstack-dialog').isVisible(), true, 'trigger opens the dialog')
   const feature = page.locator('#pstack-role-feature')
   await feature.selectOption('deepseek-official::fixture-base')
   await page.locator('#pstack-effort-feature').selectOption('high')
