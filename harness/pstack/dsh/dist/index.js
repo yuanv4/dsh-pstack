@@ -8,6 +8,7 @@ var SKILL_PROVIDER_NAME = "pstack-dsh";
 var OVERLAY_FILENAME = "pstack-dsh.json";
 var TOOL_CATALOG = "pstack_catalog";
 var TOOL_SPAWN = "pstack_spawn";
+var TOOL_INTERRUPT = "pstack_interrupt";
 var TOOL_OVERLAY_READ = "pstack_overlay_read";
 var TOOL_OVERLAY_WRITE = "pstack_overlay_write";
 var SPAWN_PROVIDER = "spawn";
@@ -464,6 +465,7 @@ function resolveSpawn(overlay, request) {
     role,
     description: request.description,
     prompt: request.prompt,
+    ...request.name === void 0 ? {} : { name: request.name },
     runInBackground: request.runInBackground,
     inherit: agentOptions === void 0,
     ...agentOptions === void 0 ? {} : { agentOptions },
@@ -529,7 +531,7 @@ ${errors.join("\n")}`);
 function spawnTool(host) {
   return {
     name: TOOL_SPAWN,
-    description: "Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type.",
+    description: "Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type. When the session enables Agent Teams, passing name gives the teammate a stable address for the task board.",
     parameters: {
       description: {
         type: "string",
@@ -545,6 +547,10 @@ function spawnTool(host) {
         type: "string",
         required: true,
         description: "pstack role key. The nine mapped roles are feature, refactoring / bug-fix / perf-issue / hillclimb / judgment and prose / arena runners / arena cross-judge pool / swarm workers / interrogate reviewers. Any other name, such as how-explorer, inherits the parent route."
+      },
+      name: {
+        type: "string",
+        description: "Optional name unique among the parent\u2019s children, 1 to 32 lower-case letters, digits, or hyphens, starting with a letter and not lead."
       },
       run_in_background: {
         type: "boolean",
@@ -586,6 +592,7 @@ function spawnTool(host) {
         role,
         description: String(args.description ?? ""),
         prompt: String(args.prompt ?? ""),
+        ...typeof args.name === "string" ? { name: args.name } : {},
         runInBackground: args.run_in_background !== false,
         routeIndex: typeof args.route_index === "number" ? args.route_index : void 0,
         ...model === void 0 ? {} : { model },
@@ -610,6 +617,7 @@ function spawnTool(host) {
         label: resolved.description,
         prompt: persona ? [...textPrompt(persona), ...textPrompt(resolved.prompt)] : textPrompt(resolved.prompt),
         parent,
+        ...resolved.name === void 0 ? {} : { name: resolved.name },
         signal: exec.signal ?? new AbortController().signal,
         delivery: resolved.runInBackground ? "parent" : "caller",
         ...resolved.agentOptions ? { agentOptions: {
@@ -631,6 +639,24 @@ function spawnTool(host) {
       } finally {
         await activation.dispose();
       }
+    }
+  };
+}
+function interruptTool(host) {
+  return {
+    name: TOOL_INTERRUPT,
+    description: "Stop one child\u2019s current turn. Built-in presets disable the native interrupt_agent, so this is the interruption path.",
+    parameters: {
+      agent: { type: "string", required: true, description: "A non-empty child name from list_agents or its Session id." }
+    },
+    async execute(args, exec) {
+      if (typeof args.agent !== "string" || args.agent.length === 0) throw new Error("agent is required");
+      if (exec.agent === void 0) throw new Error("pstack_interrupt requires a calling agent");
+      const subagents = host.subagents;
+      if (subagents === void 0) throw new Error("pstack_interrupt requires ctx.subagents");
+      const targetId = await subagents.resolveName(exec.agent, args.agent, exec.signal ?? new AbortController().signal);
+      await subagents.interrupt(targetId, { kind: "ancestor", agent: exec.agent });
+      return { interrupted: true, agent: targetId };
     }
   };
 }
@@ -1083,6 +1109,7 @@ function apply(ctx, config) {
   registerOne(ctx, overlayReadTool(host));
   registerOne(ctx, overlayWriteTool(host));
   registerOne(ctx, spawnTool(host));
+  registerOne(ctx, interruptTool(host));
   ctx.skills.registerProvider(() => createSkillProvider());
   const poteto = registerPotetoMode(ctx);
   ctx.inject(["webServer", "connection"], (webCtx) => {

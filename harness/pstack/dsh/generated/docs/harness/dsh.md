@@ -26,6 +26,7 @@ A skill's frontmatter decides how it is reached. The generator makes skills that
 | Upstream (Cursor) | DSH |
 | --- | --- |
 | `Task` subagent | `pstack_spawn`, then read the settlement notice |
+| Stop a child | `pstack_interrupt` |
 | `AskQuestion` | `ask_user_question` |
 | Open a todolist, or copy steps into the todolist tool | `todo_write` |
 | `Grep`, `Glob` | `grep`, `glob` |
@@ -46,7 +47,13 @@ A skill's frontmatter decides how it is reached. The generator makes skills that
 | `resume` | `send_message` to the settled child |
 | `file_attachments` | list the paths in the brief |
 
-`pstack_spawn` accepts `description`, `prompt`, `role`, and optional `run_in_background`, `route_index`, `model`, `provider`, and `reasoning_effort`. `provider` requires a `model`. Choose a listed route and supported effort. If the catalog has no effort metadata, omit the effort.
+`pstack_spawn` accepts `description`, `prompt`, `role`, and optional `name`, `run_in_background`, `route_index`, `model`, `provider`, and `reasoning_effort`. `provider` requires a `model`. Choose a listed route and supported effort. If the catalog has no effort metadata, omit the effort.
+
+## Agent Teams
+
+When the session enables Agent Teams, `pstack_spawn` starts a teammate. Create the shared task first, then start the child with `name` and include the task id in its prompt. After dispatch, reassign the task to the returned name. Re-read the task before every update. Only the task owner completes it; the lead reassigns the task to itself before finishing.
+
+Use the team board for durable work with an owner, dependencies, write scopes, or handoff. Keep private or one-shot exploration as ordinary delegation. Use `pstack_interrupt` to stop one child by name or Session id.
 
 ## Models
 

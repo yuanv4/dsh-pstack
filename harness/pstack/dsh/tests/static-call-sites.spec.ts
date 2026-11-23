@@ -141,7 +141,7 @@ describe('skill call sites', () => {
   it('exposes pstack_spawn with an optional per-call route and nothing else', () => {
     const tool = spawnTool({})
     const keys = Object.keys(tool.parameters)
-    assert.deepEqual(keys.sort(), ['description', 'model', 'prompt', 'provider', 'reasoning_effort', 'role', 'route_index', 'run_in_background'])
+    assert.deepEqual(keys.sort(), ['description', 'model', 'name', 'prompt', 'provider', 'reasoning_effort', 'role', 'route_index', 'run_in_background'])
     assert.ok(!('thinking' in tool.parameters))
     assert.ok(!('isolation' in tool.parameters))
     assert.ok(!('subagent_type' in tool.parameters))

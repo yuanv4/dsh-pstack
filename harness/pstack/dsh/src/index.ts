@@ -14,6 +14,7 @@ import { Config, type Config as PluginConfig } from './plugin-config.ts'
 import { createSkillProvider } from './skills-provider.ts'
 import {
   catalogTool,
+  interruptTool,
   overlayReadTool,
   overlayWriteTool,
   spawnTool,
@@ -62,6 +63,7 @@ export function apply(ctx: Context, config?: PluginConfig): void {
   registerOne(ctx, overlayReadTool(host))
   registerOne(ctx, overlayWriteTool(host))
   registerOne(ctx, spawnTool(host))
+  registerOne(ctx, interruptTool(host))
   ctx.skills.registerProvider(() => createSkillProvider())
   const poteto = registerPotetoMode(ctx)
   ctx.inject(['webServer', 'connection'], webCtx => {

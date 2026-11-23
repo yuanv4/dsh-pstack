@@ -6,6 +6,7 @@ export interface SpawnRequest {
   readonly role: string
   readonly description: string
   readonly prompt: string
+  readonly name?: string
   readonly runInBackground: boolean
   readonly routeIndex?: number
   /** Per-call model route, used to adjust one job away from the role line. */
@@ -23,6 +24,7 @@ export interface ResolvedSpawn {
   readonly role: string
   readonly description: string
   readonly prompt: string
+  readonly name?: string
   readonly runInBackground: boolean
   readonly inherit: boolean
   readonly agentOptions?: AgentOptions
@@ -52,6 +54,7 @@ export function resolveSpawn(overlay: Overlay, request: SpawnRequest): ResolvedS
     role,
     description: request.description,
     prompt: request.prompt,
+    ...request.name === undefined ? {} : { name: request.name },
     runInBackground: request.runInBackground,
     inherit: agentOptions === undefined,
     ...agentOptions === undefined ? {} : { agentOptions },

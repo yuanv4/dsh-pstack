@@ -50,6 +50,14 @@ async function fixture(t: TestContext, mapped: { provider: string; model: string
   return { execute, calls, disposed: () => disposed }
 }
 
+it('forwards an optional name and omits it when absent', async t => {
+  const f = await fixture(t)
+  await f.execute({ name: 'worker-a' })
+  await f.execute()
+  assert.equal(f.calls[0].name, 'worker-a')
+  assert.equal('name' in f.calls[1], false)
+})
+
 it('validates effort on the selected indexed route before activation', async t => {
   const f = await fixture(t)
   await assert.rejects(f.execute({ reasoning_effort: 'high' }), /effort/i)

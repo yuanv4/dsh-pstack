@@ -10,6 +10,7 @@ export const OVERLAY_FILENAME = 'pstack-dsh.json'
 /** Model-facing tool names this plugin registers. */
 export const TOOL_CATALOG = 'pstack_catalog'
 export const TOOL_SPAWN = 'pstack_spawn'
+export const TOOL_INTERRUPT = 'pstack_interrupt'
 export const TOOL_OVERLAY_READ = 'pstack_overlay_read'
 export const TOOL_OVERLAY_WRITE = 'pstack_overlay_write'
 

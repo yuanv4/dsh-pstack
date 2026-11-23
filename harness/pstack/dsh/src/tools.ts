@@ -18,6 +18,7 @@ import { normalizeRole } from './roles.ts'
 import {
   SPAWN_PROVIDER,
   TOOL_CATALOG,
+  TOOL_INTERRUPT,
   TOOL_OVERLAY_READ,
   TOOL_OVERLAY_WRITE,
   TOOL_SPAWN,
@@ -31,7 +32,7 @@ export interface ToolDefinition {
 }
 
 export interface ToolHost extends CatalogHost {
-  subagents?: Pick<SubagentRuntime, 'startActivation'>
+  subagents?: Pick<SubagentRuntime, 'startActivation' | 'resolveName' | 'interrupt'>
   spawnProvider?: string
 }
 
@@ -98,7 +99,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
   return {
     name: TOOL_SPAWN,
     description:
-      'Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type.',
+      'Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type. When the session enables Agent Teams, passing name gives the teammate a stable address for the task board.',
     parameters: {
       description: {
         type: 'string',
@@ -114,6 +115,10 @@ export function spawnTool(host: ToolHost): ToolDefinition {
         type: 'string',
         required: true,
         description: 'pstack role key. The nine mapped roles are feature, refactoring / bug-fix / perf-issue / hillclimb / judgment and prose / arena runners / arena cross-judge pool / swarm workers / interrogate reviewers. Any other name, such as how-explorer, inherits the parent route.',
+      },
+      name: {
+        type: 'string',
+        description: 'Optional name unique among the parent’s children, 1 to 32 lower-case letters, digits, or hyphens, starting with a letter and not lead.',
       },
       run_in_background: {
         type: 'boolean',
@@ -157,6 +162,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
         role,
         description: String(args.description ?? ''),
         prompt: String(args.prompt ?? ''),
+        ...typeof args.name === 'string' ? { name: args.name } : {},
         runInBackground: args.run_in_background !== false,
         routeIndex: typeof args.route_index === 'number' ? args.route_index : undefined,
         ...model === undefined ? {} : { model },
@@ -182,6 +188,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
         label: resolved.description,
         prompt: persona ? [...textPrompt(persona), ...textPrompt(resolved.prompt)] : textPrompt(resolved.prompt),
         parent,
+        ...resolved.name === undefined ? {} : { name: resolved.name },
         signal: exec.signal ?? new AbortController().signal,
         delivery: resolved.runInBackground ? 'parent' : 'caller',
         ...resolved.agentOptions ? { agentOptions: { ...resolved.agentOptions,
@@ -202,6 +209,25 @@ export function spawnTool(host: ToolHost): ToolDefinition {
       } finally {
         await activation.dispose()
       }
+    },
+  }
+}
+
+export function interruptTool(host: ToolHost): ToolDefinition {
+  return {
+    name: TOOL_INTERRUPT,
+    description: 'Stop one child’s current turn. Built-in presets disable the native interrupt_agent, so this is the interruption path.',
+    parameters: {
+      agent: { type: 'string', required: true, description: 'A non-empty child name from list_agents or its Session id.' },
+    },
+    async execute(args, exec) {
+      if (typeof args.agent !== 'string' || args.agent.length === 0) throw new Error('agent is required')
+      if (exec.agent === undefined) throw new Error('pstack_interrupt requires a calling agent')
+      const subagents = host.subagents
+      if (subagents === undefined) throw new Error('pstack_interrupt requires ctx.subagents')
+      const targetId = await subagents.resolveName(exec.agent, args.agent, exec.signal ?? new AbortController().signal)
+      await subagents.interrupt(targetId, { kind: 'ancestor', agent: exec.agent })
+      return { interrupted: true, agent: targetId }
     },
   }
 }
