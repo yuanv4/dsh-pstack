@@ -43,7 +43,7 @@ try {
   const ctx = {
     get: name => ({
       commands: { register: definition => (registered.push(definition), () => {}) },
-      agents: { list: () => [agent] },
+      agents: { list: () => [agent], get: id => (String(agent.session.id) === String(id) ? agent : undefined) },
       llm: { listProviders: () => [], listModels: async () => [] },
       subagents: { startActivation: async () => ({}) },
     })[name],

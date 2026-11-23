@@ -25,3 +25,6 @@ export const ROLE_EDITOR_ENTRY_ID = 'pstack-role-settings'
 /** Same-origin Web routes. Pattern: dsh-oauth-login `src/auth-routes.ts`. */
 export const SETTINGS_SNAPSHOT_PATH = '/plugins/pstack-dsh/settings'
 export const SETTINGS_SAVE_PATH = '/plugins/pstack-dsh/settings'
+
+/** Session switch state and toggle. */
+export const POTETO_STATE_PATH = '/plugins/pstack-dsh/poteto'

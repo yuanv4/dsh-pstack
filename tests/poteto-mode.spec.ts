@@ -72,7 +72,7 @@ function harness(services: Record<string, unknown> = {}, agent?: Agent): Harness
   const primary = agent ?? fakeAgent('session-root', 'user', { tools, systemPrompt: prompt, ...services })
   const agents = [primary]
   const ctx = {
-    get: (name: string) => ({ commands: { register: (definition: never) => (registered.push(definition as never), () => {}) }, agents: { list: () => agents }, ...services })[name as never],
+    get: (name: string) => ({ commands: { register: (definition: never) => (registered.push(definition as never), () => {}) }, agents: { list: () => agents, get: (id: string) => agents.find(entry => String(entry.session.id) === id) }, ...services })[name as never],
     on: (event: string, handler: (payload?: unknown) => void) => {
       listeners.set(event, handler)
       return () => {}

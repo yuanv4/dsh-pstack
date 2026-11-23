@@ -20,6 +20,7 @@ import {
   type ToolHost,
 } from './tools.ts'
 import { registerPotetoMode } from './poteto-mode.ts'
+import { registerPstackPotetoRoutes } from './poteto-routes.ts'
 import { registerPstackSettingsRoutes } from './settings-routes.ts'
 
 export const name = PLUGIN_ID
@@ -62,8 +63,9 @@ export function apply(ctx: Context, config?: PluginConfig): void {
   registerOne(ctx, overlayWriteTool(host))
   registerOne(ctx, spawnTool(host))
   ctx.skills.registerProvider(() => createSkillProvider())
-  registerPotetoMode(ctx)
+  const poteto = registerPotetoMode(ctx)
   ctx.inject(['webServer', 'connection'], webCtx => {
     registerPstackSettingsRoutes(webCtx, host)
+    if (poteto !== undefined) registerPstackPotetoRoutes(webCtx, poteto)
   })
 }

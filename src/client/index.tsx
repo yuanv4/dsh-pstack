@@ -7,6 +7,7 @@ import type { PluginDetailProps } from '@deepseek-ai/dsh-client-ui-plugin-manage
 import { useId, useRef, useState } from 'react'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { PotetoToggle } from './PotetoToggle.tsx'
 import { PstackSettings } from './PstackSettings.tsx'
 import type { PstackSettingsInjected } from './PstackSettings.tsx'
 import { en, zh } from './locales.ts'
@@ -128,4 +129,14 @@ export function apply(ctx: Context): void {
     id: ROLE_EDITOR_ENTRY_ID,
     inject: (): PstackSettingsInjected => ({ t, subscribeCatalogChanges }),
   }, PstackDetailAction))
+  // Session header switch: poteto workflow on/off for the open session. The slot
+  // engine passes the session id to `inject`, so the toggle never guesses it.
+  const switchSlot = 'conversation.session.header.actions'
+  ctx.slots.inject(switchSlot as never, () => ctx.slots.register({
+    name: switchSlot,
+    id: 'pstack-poteto-switch',
+    order: 40,
+    locale: namespace,
+    inject: (sessionId: string) => ({ sessionId, t }),
+  } as never, PotetoToggle as never))
 }
