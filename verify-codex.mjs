@@ -43,16 +43,28 @@ try {
   assert.deepEqual(overlay.roles['feature, refactoring'], overlayFor('high').roles['feature, refactoring'])
   assert.deepEqual((await run('pstack_overlay_read')).overlay.roles['feature, refactoring'], overlay.roles['feature, refactoring'])
   const task = { role: 'feature', description: 'Verify routed child', prompt: 'Reply with ok.' }
-  assert.deepEqual(await run('pstack_spawn', task), { kind: 'activation', subagentId: 'child-1', name: 'agent-1', role: 'feature, refactoring', inherit: false })
+  assert.deepEqual(await run('pstack_spawn', task), { kind: 'activation', subagentId: 'child-1', name: 'agent-1', role: 'feature, refactoring', inherit: false, routeSource: 'role' })
   assert.deepEqual(requests[0].agentOptions, { provider: 'codex', model, reasoningEffort: 'high' })
   assert.equal(requests[0].delivery, 'parent')
   assert.equal((await run('pstack_spawn', { ...task, role: 'how-explorer', run_in_background: false })).output, 'ok')
   assert.equal(requests[1].delivery, 'caller')
   assert.equal('agentOptions' in requests[1], false)
+
+  // Per-call route: model must be listed, provider disambiguates, effort must be supported.
+  const override = await run('pstack_spawn', { ...task, model, provider: 'private-proxy', reasoning_effort: 'high' })
+  assert.equal(override.routeSource, 'call')
+  assert.deepEqual(requests[2].agentOptions, { provider: 'private-proxy', model, reasoningEffort: 'high' })
+  const effortOnly = await run('pstack_spawn', { ...task, reasoning_effort: 'high' })
+  assert.equal(effortOnly.routeSource, 'role')
+  assert.deepEqual(requests[3].agentOptions, { provider: 'codex', model, reasoningEffort: 'high' })
+  await assert.rejects(run('pstack_spawn', { ...task, model: 'not-listed' }), /not listed by DSH/)
+  await assert.rejects(run('pstack_spawn', { ...task, model }), /send provider too/)
+  await assert.rejects(run('pstack_spawn', { ...task, model, provider: 'private-proxy', reasoning_effort: 'low' }), /does not support effort/)
+  await assert.rejects(run('pstack_spawn', { ...task, role: 'how-explorer', reasoning_effort: 'high' }), /has no mapped route/)
   signedIn = false
   assert.deepEqual((await run('pstack_catalog')).routes.map(r => r.provider), ['private-proxy'])
   await assert.rejects(run('pstack_overlay_write', { overlay: overlayFor('high') }), /not listed by DSH/)
-  console.log('PASS: Codex discovery, effort validation, save/read, Codex removal, and independent proxy discovery')
+  console.log('PASS: Codex discovery, effort validation, save/read, per-call route overrides, Codex removal, and independent proxy discovery')
 } finally {
   if (previousHome === undefined) delete process.env.DSH_HOME
   else process.env.DSH_HOME = previousHome

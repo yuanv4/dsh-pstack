@@ -13,6 +13,7 @@ import {
 } from './overlay.ts'
 import { resolveDshHome } from './home.ts'
 import { loadPersona } from './persona.ts'
+import { resolveRole } from './overlay.ts'
 import { resolveSpawn } from './spawn.ts'
 import { normalizeRole } from './roles.ts'
 import {
@@ -98,7 +99,7 @@ export function spawnTool(host: ToolHost): ToolDefinition {
   return {
     name: TOOL_SPAWN,
     description:
-      'Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. Do not send model, provider, reasoning_effort, thinking, isolation, or subagent_type. Route and effort come from $DSH_HOME/pstack-dsh.json when that role is mapped to a route listed by DSH; otherwise the child inherits this conversation.',
+      'Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type.',
     parameters: {
       description: {
         type: 'string',
@@ -123,6 +124,18 @@ export function spawnTool(host: ToolHost): ToolDefinition {
         type: 'number',
         description: 'Which overlay route to use for a panel role. Default 0.',
       },
+      model: {
+        type: 'string',
+        description: 'Optional model to run this one child on, such as a weaker model for routine work or a stronger one for the hardest work. Must be a model pstack_catalog lists; omit to use the role line.',
+      },
+      provider: {
+        type: 'string',
+        description: 'Provider for the model override. Omit when exactly one listed provider serves that model.',
+      },
+      reasoning_effort: {
+        type: 'string',
+        description: 'Optional effort for this one child, one of the efforts the resolved model lists. Omit to use the role line or the model default.',
+      },
     },
     async execute(args, exec) {
       const parent = exec.agent
@@ -132,12 +145,20 @@ export function spawnTool(host: ToolHost): ToolDefinition {
       const role = normalizeRole(String(args.role ?? ''))
       if (role.length === 0) throw new Error('pstack_spawn role is required')
       const overlay: Overlay = (await readOverlay(host.dshHome ?? resolveDshHome(host.env))).overlay
+
+      const modelArg = stringArg(args.model)
+      const providerArg = stringArg(args.provider)
+      const effortArg = stringArg(args.reasoning_effort)
+      const call = await resolveCallRoute(host, overlay, role, modelArg, providerArg, effortArg, exec.signal)
+
       const resolved = resolveSpawn(overlay, {
         role,
         description: String(args.description ?? ''),
         prompt: String(args.prompt ?? ''),
         runInBackground: args.run_in_background !== false,
         routeIndex: typeof args.route_index === 'number' ? args.route_index : undefined,
+        ...call.model === undefined ? {} : { model: call.model },
+        ...call.reasoningEffort === undefined ? {} : { reasoningEffort: call.reasoningEffort },
       })
       if (resolved.description.trim().length === 0) throw new Error('description is required')
       if (resolved.prompt.trim().length === 0) throw new Error('prompt is required')
@@ -154,7 +175,13 @@ export function spawnTool(host: ToolHost): ToolDefinition {
           ...resolved.reasoningEffort ? { reasoningEffort: ReasoningEffortId(resolved.reasoningEffort) } : {},
         } } : {},
       })
-      const receipt = { subagentId: activation.childId, name: activation.name, role: resolved.role, inherit: resolved.inherit }
+      const receipt = {
+        subagentId: activation.childId,
+        name: activation.name,
+        role: resolved.role,
+        inherit: resolved.inherit,
+        routeSource: resolved.routeSource,
+      }
       if (resolved.runInBackground) return { kind: 'activation', ...receipt }
       try {
         const result = await activation.result
@@ -163,6 +190,59 @@ export function spawnTool(host: ToolHost): ToolDefinition {
         await activation.dispose()
       }
     },
+  }
+}
+
+function stringArg(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+/**
+ * Validate a per-call route against the live catalog.
+ *
+ * Model names are how upstream skills talk about routes, and DSH additionally
+ * needs a provider, so the provider is resolved from the catalog unless the call
+ * names one. An explicit effort must be one the resolved model lists.
+ */
+async function resolveCallRoute(
+  host: ToolHost,
+  overlay: Overlay,
+  role: string,
+  modelArg: string | undefined,
+  providerArg: string | undefined,
+  effortArg: string | undefined,
+  signal: AbortSignal | undefined,
+): Promise<{ model?: { provider: string; model: string }; reasoningEffort?: string }> {
+  if (modelArg === undefined) {
+    if (providerArg !== undefined) throw new Error('provider needs a model')
+    if (effortArg === undefined) return {}
+    const assignment = resolveRole(overlay, role)
+    const mapped = !assignment.inherit && assignment.routes.length > 0
+    if (!mapped) throw new Error(`reasoning_effort "${effortArg}" needs a model, because role "${role}" has no mapped route`)
+    return { reasoningEffort: effortArg }
+  }
+
+  const catalog = await buildCatalog(host, signal)
+  const matches = catalog.routes.filter(route => route.model === modelArg || `${route.provider}/${route.model}` === modelArg)
+  if (matches.length === 0) {
+    throw new Error(`model "${modelArg}" is not listed by DSH. Run pstack_catalog and pick a listed model.`)
+  }
+  let chosen = matches[0]
+  if (providerArg !== undefined) {
+    const byProvider = matches.find(route => route.provider === providerArg)
+    if (byProvider === undefined) {
+      throw new Error(`model "${modelArg}" is not listed under provider "${providerArg}". Listed providers: ${matches.map(route => route.provider).join(', ')}.`)
+    }
+    chosen = byProvider
+  } else if (matches.length > 1) {
+    throw new Error(`model "${modelArg}" is listed by ${matches.map(route => route.provider).join(', ')}; send provider too.`)
+  }
+  if (effortArg !== undefined && chosen.efforts.length > 0 && !chosen.efforts.some(effort => effort.id === effortArg)) {
+    throw new Error(`model "${modelArg}" does not support effort "${effortArg}". Listed efforts: ${chosen.efforts.map(effort => effort.id).join(', ')}.`)
+  }
+  return {
+    model: { provider: chosen.provider, model: chosen.model },
+    ...effortArg === undefined ? {} : { reasoningEffort: effortArg },
   }
 }
 

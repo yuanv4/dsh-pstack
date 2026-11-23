@@ -71,6 +71,58 @@ describe('resolveSpawn', () => {
   })
 })
 
+describe('per-call route precedence', () => {
+  const overlay = parseOverlay(JSON.stringify({
+    version: 1,
+    roles: {
+      'feature, refactoring': { inherit: false, routes: [{ provider: 'codex', model: 'terra', reasoningEffort: 'high' }] },
+      'swarm workers': { inherit: false, routes: [{ provider: 'opencode-go', model: 'flash', reasoningEffort: 'low' }] },
+    },
+  }))
+
+  it('lets an explicit model beat the role line', () => {
+    const resolved = resolveSpawn(overlay, {
+      role: 'feature, refactoring',
+      description: 'cheap sweep',
+      prompt: 'scan',
+      runInBackground: true,
+      model: { provider: 'opencode-go', model: 'flash' },
+      reasoningEffort: 'low',
+    })
+    assert.equal(resolved.inherit, false)
+    assert.equal(resolved.routeSource, 'call')
+    assert.deepEqual(resolved.agentOptions, { provider: 'opencode-go', model: 'flash' })
+    assert.equal(resolved.reasoningEffort, 'low')
+  })
+
+  it('keeps the role model when only the effort is overridden', () => {
+    const resolved = resolveSpawn(overlay, {
+      role: 'feature, refactoring',
+      description: 'hard job',
+      prompt: 'refactor',
+      runInBackground: true,
+      reasoningEffort: 'xhigh',
+    })
+    assert.equal(resolved.routeSource, 'role')
+    assert.deepEqual(resolved.agentOptions, { provider: 'codex', model: 'terra' })
+    assert.equal(resolved.reasoningEffort, 'xhigh')
+  })
+
+  it('runs an unmapped role on an explicit model instead of inheriting', () => {
+    const resolved = resolveSpawn(overlay, {
+      role: 'how-explorer',
+      description: 'trace',
+      prompt: 'read',
+      runInBackground: true,
+      model: { provider: 'opencode-go', model: 'flash' },
+    })
+    assert.equal(resolved.inherit, false)
+    assert.equal(resolved.routeSource, 'call')
+    assert.deepEqual(resolved.agentOptions, { provider: 'opencode-go', model: 'flash' })
+    assert.equal(resolved.reasoningEffort, undefined)
+  })
+})
+
 describe('applyRoleConfig', () => {
   it('overlays effort onto LlmCallConfig, not onto a spawn field', () => {
     const next = applyRoleConfig(

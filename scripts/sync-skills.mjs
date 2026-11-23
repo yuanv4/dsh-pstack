@@ -105,7 +105,7 @@ const LINE_RULES = [
   ],
   [
     /^\*\*Defaults for every `pstack_spawn` call\.\*\*[\s\S]*?Say so\.$/m,
-    "**Defaults for every `pstack_spawn` call.** `run_in_background: true`, a brief that forbids edits when the job must not write, file pointers rather than inlined context, and one role name per delegate. `/setup-pstack` writes `$DSH_HOME/pstack-dsh.json`, whose nine role lines hold each role's route and effort. Each code playbook reads its own line (`feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`), prose and judgment read `judgment and prose`, panels read `arena runners`, `arena cross-judge pool`, `swarm workers`, or `interrogate reviewers`, and verification runs on `swarm workers`.\n\n**Effort belongs to the role.** This harness takes no model or effort on the call, so do not try to raise one delegate for one job. Change the role's line in the editor when a role needs a different level. A route the harness stops listing is dropped by the editor, and that role then runs on this conversation's route.",
+    "**Defaults for every `pstack_spawn` call.** `run_in_background: true`, a brief that forbids edits when the job must not write, file pointers rather than inlined context, and one role name per delegate. `/setup-pstack` writes `$DSH_HOME/pstack-dsh.json`, whose nine role lines hold each role's starting route and effort. Each code playbook reads its own line (`feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`), prose and judgment read `judgment and prose`, and trivial mechanical edits read `swarm workers`. A role with no line inherits this conversation.\n\n**Match the model to the job.** The role line is the starting route, not a fence. Pass `model` or `reasoning_effort` only when the job needs a different route than its line. Raise the effort one step for the hardest or subtlest work, lower it one step for judgment, and two or more steps for routine work, such as read-only tracing, mechanical sweeps, or summarising a known diff. Stay in the role's model family when the catalog offers a family mate, because another family changes the character of the answer, not only its strength. Panel seats keep their listed level, and verification always runs on the `swarm workers` route. An unlisted model or an unsupported effort fails the call with the listed choices; read them, take the nearest route that exists, and say what you changed.",
   ],
   [/^- Before commit → `\/deslop` from the `cursor-team-kit` plugin\./m, '- Before commit → **unslop**.'],
   [
@@ -115,11 +115,11 @@ const LINE_RULES = [
       '',
       'Read [`../../HARNESS.md`](../../HARNESS.md) before changing a skill or a call site. Three rules matter here.',
       '',
-      '- `pstack_spawn` takes only `description`, `prompt`, `role`, `run_in_background`, and `route_index`. Model and effort come from the role mapping in `$DSH_HOME/pstack-dsh.json`, never from the call.',
+      '- `pstack_spawn` takes `description`, `prompt`, `role`, and optional `run_in_background`, `route_index`, `model`, `provider`, and `reasoning_effort`. The role line is the default route; a per-call model or effort adjusts one job.',
       '- Nine roles can hold a mapping. Any other role name, including `how-explainer` and `poteto-agent`, runs on this conversation\'s route.',
       '- A step that needs Cursor Automations, Bugbot, a cloud agent, or a plugin-provided tooling skill DSH does not ship gets one line, `Skipped in DSH: <step>. <reason>.`, and the work continues.',
       '',
-      'Never add a model, provider, or effort argument to a spawn call, and never write a rules file under a Cursor or Claude config path.',
+      'Send a per-call `model` or `reasoning_effort` only to adjust one job\'s route, never to dodge the mapping silently. A call that names an unlisted model or an unsupported effort fails and lists the choices. Never write a rules file under a Cursor or Claude config path.',
       '',
       '## Writing the reply',
     ].join('\n'),

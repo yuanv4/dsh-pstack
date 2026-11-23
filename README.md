@@ -20,7 +20,7 @@ Then start a session and run `/poteto-mode`, or any bundled skill from the `/` m
 
 ## What works differently here
 
-DSH's `subagent` tool takes no model and no effort. So a role's model lives in `$DSH_HOME/pstack-dsh.json` and `pstack_spawn` reads it at spawn time. Nine roles can hold a mapping, matching upstream's `setup-pstack` lines. Any other role name a skill uses runs on the conversation's own route.
+DSH's `subagent` tool takes no model and no effort. So a role's model lives in `$DSH_HOME/pstack-dsh.json` and `pstack_spawn` reads it at spawn time. A single job may still pass `model` and `reasoning_effort` to adjust that route, the way upstream skills adjust a delegate per task. Nine roles can hold a mapping, matching upstream's `setup-pstack` lines. Any other role name a skill uses runs on the conversation's own route.
 
 Open **插件 → pstack-dsh → 配置** to edit the mapping. The page lists every model DSH currently offers, with that model's own reasoning efforts.
 

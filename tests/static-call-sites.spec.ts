@@ -81,14 +81,15 @@ describe('skill call sites', () => {
     assert.match(arena, /`arena cross-judge pool` line in `\$DSH_HOME\/pstack-dsh\.json`/)
   })
 
-  it('exposes pstack_spawn without model or effort fields', () => {
+  it('exposes pstack_spawn with an optional per-call route and nothing else', () => {
     const tool = spawnTool({})
     const keys = Object.keys(tool.parameters)
-    assert.deepEqual(keys.sort(), ['description', 'prompt', 'role', 'route_index', 'run_in_background'])
-    assert.ok(!('model' in tool.parameters))
-    assert.ok(!('reasoning_effort' in tool.parameters))
+    assert.deepEqual(keys.sort(), ['description', 'model', 'prompt', 'provider', 'reasoning_effort', 'role', 'route_index', 'run_in_background'])
     assert.ok(!('thinking' in tool.parameters))
     assert.ok(!('isolation' in tool.parameters))
     assert.ok(!('subagent_type' in tool.parameters))
+    // The role line stays the default; the call only adjusts this one child.
+    assert.match(tool.description, /role line .* supplies the default route/)
+    assert.match(tool.description, /send model or reasoning_effort only to adjust one job/)
   })
 })

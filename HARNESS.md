@@ -35,7 +35,7 @@ A skill's frontmatter decides how it is reached. The port keeps `how`, `why`, `u
 | Upstream (Cursor) | DSH |
 | --- | --- |
 | `subagent_type` | `role` |
-| `model:`, and the per-call reasoning level | nothing on the call. A role's model and effort come from `$DSH_HOME/pstack-dsh.json` only |
+| `model:`, and the per-call reasoning level | optional `model` and `reasoning_effort` on `pstack_spawn`. The role line is the default; a per-call value adjusts one job |
 | `readonly: true` | say "do not edit files" in the brief, then check `git status` yourself |
 | `readonly: false` | default |
 | `environment: "cloud"` | create a worktree in the parent and put its path in the brief |
@@ -55,7 +55,7 @@ The mapped roles are the nine lines from upstream `setup-pstack`:
 
 A role the file does not name, such as `how-explainer`, `why-investigators`, `reflect-judgment`, or `poteto-agent`, runs on the parent conversation's route. That is the DSH equivalent of upstream sending no model.
 
-Consequence to keep in mind when editing skills: upstream adjusts a delegate's model and effort per task. This port does not expose that on `pstack_spawn`, so a delegate's route comes only from its role line or the parent. That is a port choice, not a harness limit: the spawn path already passes `provider`, `model`, and `reasoningEffort` from the overlay, so per-call override is addable.
+Precedence follows upstream. An explicit `model` wins, then the role's line, then the parent conversation; an explicit `reasoning_effort` adjusts whichever model won. Model names resolve to a provider through the live catalog, so a call must name a model DSH lists, and an effort the resolved model supports. A role with no line and no explicit model still inherits the conversation.
 
 ## Paths
 
