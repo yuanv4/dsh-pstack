@@ -7,13 +7,13 @@ A DSH adaptation of [poteto's pstack](https://github.com/cursor/plugins/tree/mai
 Open **设置 → 插件 → 添加插件** and enter:
 
 ```text
-github:yuanv4/pstack-dsh
+github:yuanv4/dsh-pstack
 ```
 
 Or from the CLI, which writes the `web` profile only:
 
 ```sh
-dsh plugin --profile web add github:yuanv4/pstack-dsh
+dsh plugin --profile web add github:yuanv4/dsh-pstack
 ```
 
 Then start a session and run `/poteto-mode`, or any bundled skill from the `/` menu.
@@ -24,7 +24,7 @@ DSH's `subagent` tool takes no model and no effort. So a role's model lives in `
 
 Open **插件 → pstack-dsh → 配置** to edit the mapping. The page lists every model DSH currently offers, with that model's own reasoning efforts.
 
-[`HARNESS.md`](./HARNESS.md) maps every Cursor name to its DSH replacement, lists what is skipped, and records the two deliberate divergences.
+The [DSH platform map](harness/pstack/dsh/generated/docs/harness/dsh.md) lists runtime mappings and skipped features. Run `node scripts/generate-pstack-harness-trees.mjs --check` to check the generated tree without changing it.
 
 ## Turn the switch on
 
@@ -42,23 +42,40 @@ Without the switch, `/poteto-mode` still works as a skill, but nothing stops a d
 
 ## Repository layout
 
-| Path | Owner |
-|---|---|
-| `upstream/pstack/` | Snapshot of `cursor/plugins` at the pinned commit. Never edited by hand. |
-| `skills/`, `agents/`, `docs/guide/` | Generated from that snapshot. Never edited by hand. |
-| `skills/setup-pstack/` | This repo owns it: it points at the DSH editor instead of writing a Cursor rules file. |
-| `src/`, `lib/` | This repo's code: `pstack_spawn`, the overlay, the model catalog, the editor UI. |
-| `HARNESS.md` | The harness map above. |
+The [DSH platform project](<harness/pstack/dsh/>) contains both authored sources and generated outputs. The repository uses one root [npm package](<package.json>), not a separate package for each directory.
+
+```text
+pstack/                         Pinned upstream snapshot. Do not edit by hand.
+upstream.lock.json              Source commit, tree mappings, and hashes.
+harness/pstack/dsh/
+	adaptations/                DSH rewrites, setup sources, and platform map.
+	src/                        Runtime tools, routing, settings, and editor UI.
+	tests/                      Source, generated-output, and runtime checks.
+	generated/                  Installation resources. Do not edit by hand.
+	dist/                       Compiled runtime output from npm run build.
+scripts/                        Fetch, generation, build, and package checks.
+package.json                    Package exports, dependencies, and npm scripts.
+tsconfig.json                   Runtime and test TypeScript configuration.
+tsconfig.client.json            Browser TypeScript configuration.
+cordis.patch.yml                DSH bundle registration.
+```
+
+The [tree generator](<scripts/generate-pstack-harness-trees.mjs>) owns only the [DSH installation resources](<harness/pstack/dsh/generated/>), not the whole platform project. Change the [DSH adaptation sources](<harness/pstack/dsh/adaptations/>) and regenerate with `node scripts/generate-pstack-harness-trees.mjs`. The [build script](<scripts/build.mjs>) compiles the [DSH runtime sources](<harness/pstack/dsh/src/>) into the separate [runtime output directory](<harness/pstack/dsh/dist/>).
 
 ## Working on this repo
 
-```sh
-npm run sync:skills   # re-fetch the pinned upstream commit and regenerate the trees
-npm test              # typecheck is separate: npm run typecheck
-npm run build         # esbuild into lib/
-```
+Run these commands from the repository root.
 
-`scripts/sync-skills.mjs` holds every DSH rewrite and fails on any Cursor name that survives it. `tests/skills-generated.spec.ts` fails when a generated file drifts, so hand edits do not survive a commit. To move to a newer upstream, change `UPSTREAM_SHA` in `scripts/fetch-upstream.mjs`, run the sync, and read the diff.
+| Command | What it does |
+|---|---|
+| `npm run sync:skills` | Re-fetches the pinned upstream commit and regenerates the DSH installation resources. |
+| `npm run build` | Compiles the runtime into the [DSH runtime output directory](<harness/pstack/dsh/dist/>). |
+| `npm test` | Builds the runtime, then runs the [DSH tests](<harness/pstack/dsh/tests/>). Does not typecheck. |
+| `npm run typecheck` | Checks the runtime, test, and browser TypeScript sources without emitting files. |
+| `npm run check` | Checks generated output, typechecks, then builds and runs the tests. |
+| `npm run check:package` | Checks generated output, builds, and smoke-tests an actual npm tarball with a fake DSH host. Does not test live DSH activation. |
+
+[upstream.lock.json](<upstream.lock.json>) records the source repository, commit, mappings, Git blob hashes, and normalized snapshot hashes. Run `node scripts/fetch-upstream.mjs --verify` to compare the snapshot with the lock offline. The fetch verifies the complete upstream tree and downloaded blobs before replacing the selected snapshot trees. [`scripts/generate-pstack-harness-trees.mjs`](scripts/generate-pstack-harness-trees.mjs) generates the trees, [`harness/pstack/dsh/adaptations/rewrites.mjs`](harness/pstack/dsh/adaptations/rewrites.mjs) holds the DSH rewrites, and [`harness/pstack/dsh/tests/skills-generated.spec.ts`](harness/pstack/dsh/tests/skills-generated.spec.ts) checks generated files. To update the pin, change the commit in the lock, run `node scripts/fetch-upstream.mjs --update-lock`, run `npm run sync:skills`, and review the diff. The lock update downloads and verifies the new upstream blobs. Update the pinned links in this README and the authored [DSH platform map](harness/pstack/dsh/adaptations/dsh.md), plus the acceptance pin in [upstream-source.spec.ts](harness/pstack/dsh/tests/upstream-source.spec.ts), then regenerate the installation tree. A filesystem error during snapshot replacement can leave a partial snapshot; rerun the sync to restore the managed trees. An inventory mismatch caused by files outside those trees requires inspection; rerunning does not remove those files.
 
 ## License
 

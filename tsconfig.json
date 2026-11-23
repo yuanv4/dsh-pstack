@@ -12,6 +12,6 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["src/client", "lib"]
+  "include": ["harness/pstack/dsh/src/**/*.ts", "harness/pstack/dsh/tests/**/*.ts"],
+  "exclude": ["harness/pstack/dsh/src/client", "harness/pstack/dsh/dist"]
 }

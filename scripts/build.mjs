@@ -1,5 +1,5 @@
 /**
- * Build `lib/`. DSH loads `lib/index.js` for the Host and `lib/client.js` for the
+ * Build `harness/pstack/dsh/dist/`. DSH loads `harness/pstack/dsh/dist/index.js` for the Host and `harness/pstack/dsh/dist/client.js` for the
  * browser. Both are single-file bundles; `@deepseek-ai/*` stays external because
  * the running Harness provides those packages.
  */
@@ -7,8 +7,8 @@ import { build } from 'esbuild'
 import { unlinkSync } from 'node:fs'
 
 await build({
-  entryPoints: ['src/index.ts'],
-  outfile: 'lib/index.js',
+  entryPoints: ['harness/pstack/dsh/src/index.ts'],
+  outfile: 'harness/pstack/dsh/dist/index.js',
   bundle: true,
   platform: 'node',
   format: 'esm',
@@ -17,8 +17,8 @@ await build({
 })
 
 await build({
-  entryPoints: ['src/client/index.tsx'],
-  outfile: 'lib/client.cjs',
+  entryPoints: ['harness/pstack/dsh/src/client/index.tsx'],
+  outfile: 'harness/pstack/dsh/dist/client.cjs',
   bundle: true,
   platform: 'browser',
   format: 'cjs',
@@ -29,8 +29,8 @@ await build({
 
 const { writeFileSync } = await import('node:fs')
 const { readFileSync } = await import('node:fs')
-const source = readFileSync('lib/client.cjs', 'utf8')
-writeFileSync('lib/client.js', `window.__ModuleLoader__.load({
+const source = readFileSync('harness/pstack/dsh/dist/client.cjs', 'utf8')
+writeFileSync('harness/pstack/dsh/dist/client.js', `window.__ModuleLoader__.load({
 	id: "pstack-dsh",
 	factory: (require) => {
 		var module = { exports: {} };
@@ -42,8 +42,8 @@ ${source}
 });
 `)
 try {
-  unlinkSync('lib/client.cjs')
+  unlinkSync('harness/pstack/dsh/dist/client.cjs')
 } catch {
   // no intermediate artifact
 }
-console.log('built lib/index.js and lib/client.js')
+console.log('built harness/pstack/dsh/dist/index.js and harness/pstack/dsh/dist/client.js')

@@ -4,33 +4,31 @@
   "version": "0.3.0",
   "license": "MIT",
   "type": "module",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "harness/pstack/dsh/dist/index.js",
+  "types": "harness/pstack/dsh/dist/index.d.ts",
   "files": [
-    "lib",
-    "skills",
-    "agents",
-    "docs",
+    "harness/pstack/dsh/dist",
+    "harness/pstack/dsh/generated",
     "cordis.patch.yml",
-    "HARNESS.md",
     "README.md",
     "LICENSE"
   ],
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
-      "default": "./lib/index.js"
+      "types": "./harness/pstack/dsh/dist/index.d.ts",
+      "default": "./harness/pstack/dsh/dist/index.js"
     },
-    "./client": "./lib/client.js",
+    "./client": "./harness/pstack/dsh/dist/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "sync:skills": "node scripts/fetch-upstream.mjs && node scripts/sync-skills.mjs",
-    "test": "node --experimental-strip-types --test tests/*.spec.ts",
-    "check": "npm run typecheck && npm run test && npm run build"
+    "sync:skills": "node scripts/fetch-upstream.mjs && node scripts/generate-pstack-harness-trees.mjs",
+    "test": "npm run build && node --experimental-strip-types --test harness/pstack/dsh/tests/*.spec.ts",
+    "check": "node scripts/generate-pstack-harness-trees.mjs --check && npm run typecheck && npm run test",
+    "check:package": "node scripts/generate-pstack-harness-trees.mjs --check && npm run build && node scripts/smoke-package.mjs"
   },
   "engines": {
     "node": "^22.19.0 || >=24",
@@ -38,9 +36,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yuanv4/pstack-dsh.git"
+    "url": "git+https://github.com/yuanv4/dsh-pstack.git"
   },
-  "homepage": "https://github.com/yuanv4/pstack-dsh",
+  "homepage": "https://github.com/yuanv4/dsh-pstack",
   "keywords": [
     "deepseek-harness",
     "dsh",
