@@ -531,7 +531,7 @@ ${errors.join("\n")}`);
 function spawnTool(host) {
   return {
     name: TOOL_SPAWN,
-    description: "Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type. When the session enables Agent Teams, passing name gives the teammate a stable address for the task board.",
+    description: "Delegate a pstack role to a DSH subagent via ctx.subagents (spawn provider). Send description, prompt, role, and optional run_in_background. The role line in $DSH_HOME/pstack-dsh.json supplies the default route; send model or reasoning_effort only to adjust one job away from it. A role with no line inherits this conversation. Never send thinking, isolation, or subagent_type. When the session enables Agent Teams, create the shared task first, pass name so the teammate has a stable address, reassign the task to that name, and put the task id in the prompt.",
     parameters: {
       description: {
         type: "string",
