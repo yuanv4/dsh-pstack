@@ -53,6 +53,7 @@ interface Harness {
   sections: string[]
   invoke(rawInput: string, agent?: Agent): Promise<{ kind: string; text?: string }>
   emit(event: string, payload?: unknown): void
+  preStep(payload: { agent: Agent; messages: Array<{ id: string; source: { kind: string } }> }, decision?: { kind: string; messages: unknown[] }): Promise<{ kind: string; messages: unknown[] }>
   agents: Agent[]
 }
 
@@ -91,6 +92,10 @@ function harness(services: Record<string, unknown> = {}, agent?: Agent): Harness
     },
     emit(event, payload) {
       listeners.get(event)?.(payload)
+    },
+    async preStep(payload, decision = { kind: 'enter', messages: [] }) {
+      const handler = listeners.get('agent/pre-step') as unknown as (payload: unknown, next: () => Promise<unknown>) => Promise<{ kind: string; messages: unknown[] }>
+      return await handler(payload, async () => decision)
     },
   }
 }
@@ -171,6 +176,28 @@ describe('poteto switch', () => {
     test.tools.names.push('subagent-fork-2')
     test.emit('tools/change', {})
     assert.equal(test.tools.denies.length, 1, 'unknown names are ignored')
+  })
+
+  it('appends one reminder per new user turn while on', async () => {
+    const test = harness()
+    registerPotetoMode(test.ctx)
+    await test.invoke('on')
+    const userMessage = { id: 'm1', source: { kind: 'user' } }
+    const first = await test.preStep({ agent: test.agent, messages: [userMessage] })
+    assert.equal(first.messages.length, 1)
+    assert.match(JSON.stringify(first.messages[0]), /Poteto workflow is active/)
+    const repeat = await test.preStep({ agent: test.agent, messages: [userMessage] })
+    assert.equal(repeat.messages.length, 0)
+    const next = await test.preStep({ agent: test.agent, messages: [{ id: 'm2', source: { kind: 'user' } }] })
+    assert.equal(next.messages.length, 1)
+  })
+
+  it('leaves turns alone while the switch is off', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    registerPotetoMode(test.ctx)
+    const result = await test.preStep({ agent: test.agent, messages: [{ id: 'm1', source: { kind: 'user' } }] })
+    assert.equal(result.messages.length, 0)
   })
 
   it('restores the switch for a live session on startup', async () => {

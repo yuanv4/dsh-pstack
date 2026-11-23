@@ -66,6 +66,12 @@ try {
   assert.deepEqual(denies, [['subagent', 'subagent_fork']])
   assert.equal(promptSections, 1)
 
+  const preStep = listeners.get('agent/pre-step')
+  assert.ok(preStep, 'the switch registers the per-turn reminder hook')
+  const decision = await preStep({ agent, messages: [{ id: 'user-1', source: { kind: 'user' } }] }, async () => ({ kind: 'enter', messages: [] }))
+  assert.equal(decision.messages.length, 1)
+  assert.match(JSON.stringify(decision.messages[0]), /Poteto workflow is active/)
+
   const status = await command.handler({ agent, rawInput: 'status' })
   assert.match(status.text, /on/)
 
@@ -74,7 +80,7 @@ try {
 
   const { readModes } = await import(new URL('./lib/index.js', import.meta.url).href)
   assert.equal(readModes, undefined, 'internal helpers stay out of the public surface')
-  console.log('PASS: poteto switch denies native delegation, injects the skill, and toggles off')
+  console.log('PASS: poteto switch denies native delegation, injects the skill, reminds each turn, and toggles off')
 } finally {
   if (previousHome === undefined) delete process.env.DSH_HOME
   else process.env.DSH_HOME = previousHome
