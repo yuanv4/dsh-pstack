@@ -26,6 +26,20 @@ Open **插件 → pstack-dsh → 配置** to edit the mapping. The page lists ev
 
 [`HARNESS.md`](./HARNESS.md) maps every Cursor name to its DSH replacement, lists what is skipped, and records the two deliberate divergences.
 
+## Turn the switch on
+
+Skill text alone cannot stop a model from calling the native `subagent` tool, which knows nothing about the role mapping. So this plugin ships a session switch:
+
+```text
+/pstack-poteto-mode on
+/pstack-poteto-mode status
+/pstack-poteto-mode off
+```
+
+While it is on for a session, the plugin denies `subagent` and `subagent_fork` for that agent and puts the poteto-mode instructions into that session's system prompt. The only way left to delegate is `pstack_spawn`, so every child gets its role's route or inherits this conversation. The switch persists per session in `$DSH_HOME/pstack-poteto.json` and is restored on the next start. It can be turned on only in the session that runs the workflow, not inside a delegate.
+
+Without the switch, `/poteto-mode` still works as a skill, but nothing stops a delegation from skipping the route mapping.
+
 ## Repository layout
 
 | Path | Owner |

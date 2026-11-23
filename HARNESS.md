@@ -66,6 +66,15 @@ Consequence to keep in mind when editing skills: upstream can raise one delegate
 | `~/.cursor/rules/pstack-models.mdc` | `$DSH_HOME/pstack-dsh.json` |
 | `~/.cursor/projects/<slug>/agent-transcripts/` | `$DSH_HOME/sessions/<workspace-slug>/<session>/session.v4.jsonl.zstd` |
 
+## Enforcement
+
+Upstream gets route compliance from the Cursor harness, where a `Task` call names a model directly. Here a role name is only a request, and the native `subagent` tool ignores it. So the port adds a session switch, borrowed from [l246804/dsh-pstack](https://github.com/l246804/dsh-pstack):
+
+- `/pstack-poteto-mode on` denies the native `subagent` and `subagent_fork` tools for that agent with `agent.ctx.tools.restrict({ deny })`, so `pstack_spawn` is the only delegation path left.
+- The same call puts `skills/poteto-mode/SKILL.md` into that session's system prompt as `pstack:poteto-workflow`, so the workflow text is present without a separate skill invocation.
+- The selection persists per session in `$DSH_HOME/pstack-poteto.json` and is reapplied on `agent/created`, on `tools/change`, and once at plugin start.
+- `off` lifts the restriction and removes the section. Delegates (sessions with `origin: subagent`) cannot turn it on.
+
 ## Skipped in DSH
 
 DSH has no Cursor Automations, Bugbot, cloud agents, or `cursor-team-kit` skills. When a step needs one, write one line, `Skipped in DSH: <step>. <reason>.`, and continue to the next step. Do not stop, ask, or retry. When a later step needs what the skipped one produced, leave a placeholder and name it in the line.
