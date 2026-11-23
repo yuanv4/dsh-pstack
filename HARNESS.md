@@ -73,7 +73,7 @@ Upstream gets route compliance from the Cursor harness, where a `Task` call name
 - `/pstack-poteto-mode on` denies the native `subagent` and `subagent_fork` tools for that agent with `agent.ctx.tools.restrict({ deny })`, so `pstack_spawn` is the only delegation path left.
 - The same call puts `skills/poteto-mode/SKILL.md` into that session's system prompt as `pstack:poteto-workflow`, so the workflow text is present without a separate skill invocation.
 - The selection persists per session in `$DSH_HOME/pstack-poteto.json` and is reapplied on `agent/created`, on `tools/change`, and once at plugin start.
-- `off` lifts the restriction and removes the section. Delegates (sessions with `origin: subagent`) cannot turn it on.\n- The Web client renders the switch as a button in `conversation.session.header.actions`; that slot passes the session id to `inject`, and the button calls `POST /plugins/pstack-dsh/poteto`.
+- `off` lifts the restriction and removes the section. Delegates (sessions with `origin: subagent`) cannot turn it on.\n- The Web client renders the switch as a row in `conversation.input.model.options`, beside DSH's Agent Teams row; that slot passes the session id to `inject`, and the row calls `GET`/`POST /plugins/pstack-dsh/poteto`.
 
 ## Skipped in DSH
 

@@ -36,7 +36,7 @@ Skill text alone cannot stop a model from calling the native `subagent` tool, wh
 /pstack-poteto-mode off
 ```
 
-The same switch is a button in the session header (top right of the conversation), labelled `poteto on` or `poteto off`. Clicking it toggles the session. While it is on, the plugin denies `subagent` and `subagent_fork` for that agent and puts the poteto-mode instructions into that session's system prompt. The only way left to delegate is `pstack_spawn`, so every child gets its role's route or inherits this conversation. The switch persists per session in `$DSH_HOME/pstack-poteto.json` and is restored on the next start. It can be turned on only in the session that runs the workflow, not inside a delegate.
+The same switch is a row in the model menu, named `poteto workflow`, next to **Enable Agent Teams**. Toggling it switches the session. While it is on, the plugin denies `subagent` and `subagent_fork` for that agent and puts the poteto-mode instructions into that session's system prompt. The only way left to delegate is `pstack_spawn`, so every child gets its role's route or inherits this conversation. The switch persists per session in `$DSH_HOME/pstack-poteto.json` and is restored on the next start. It can be turned on only in the session that runs the workflow, not inside a delegate.
 
 Without the switch, `/poteto-mode` still works as a skill, but nothing stops a delegation from skipping the route mapping.
 

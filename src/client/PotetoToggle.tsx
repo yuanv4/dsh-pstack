@@ -1,91 +1,98 @@
-/** Session header switch: poteto workflow on/off for the current session. */
+/**
+ * Model-options row: poteto workflow on/off for the current session.
+ *
+ * Copied from the Agent Teams row (`dsh-client-ui-agent-team` TeamModeToggle) so
+ * the two switches read the same in the model menu.
+ */
 
 import { useEffect, useState } from 'react'
-import { POTETO_STATE_PATH } from '../ids.ts'
+import { Button, IconInfoOutlineRegular, Switch, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 
 export interface PotetoToggleInjected {
-  t: (key: 'switchOn' | 'switchOff' | 'switchTitleOn' | 'switchTitleOff' | 'switchBusy') => string
+  readonly sessionId: string
+  readonly readMode: () => Promise<boolean>
+  readonly selectMode: (enabled: boolean) => Promise<string | null>
+  readonly t: (key: 'switchLabel' | 'switchDescription' | 'switchInfoLabel') => string
 }
 
-const CSS = `
-.pstack-switch {
-  flex:none; display:inline-flex; align-items:center; gap:4px; height:28px; padding:0 8px;
-  border:1px solid var(--dsw-alias-border-l2); border-radius:var(--dsw-radius-sm, 6px);
-  background:transparent; color:var(--dsw-alias-label-secondary); font:inherit; font-size:12px;
-  line-height:18px; cursor:pointer; white-space:nowrap;
+const STYLE_ID = 'pstack-poteto-row-style'
+const ROW_CSS = `
+.pstack-poteto-row {
+  border-radius: var(--dsw-radius-md);
+  min-height: 34px;
+  color: var(--dsw-alias-label-primary);
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 20px;
+  display: flex;
+  position: relative;
 }
-.pstack-switch:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:2px; }
-@media (hover:hover) { .pstack-switch:hover { background:var(--dsw-alias-interactive-bg-hover); color:var(--dsw-alias-label-primary); } }
-.pstack-switch[data-on="true"] { color:var(--dsw-alias-brand-primary); border-color:color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent); }
-.pstack-switch[data-busy="true"] { opacity:.65; cursor:progress; }
-.pstack-switch-dot { flex:none; width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.6; }
-.pstack-switch[data-on="true"] .pstack-switch-dot { opacity:1; }
+.pstack-poteto-label { align-items: center; gap: 4px; min-width: 0; display: inline-flex; }
+.pstack-poteto-info { z-index: 1; width: 20px; height: 20px; color: var(--dsw-alias-label-caption); flex: none; padding: 0; position: relative; }
+.pstack-poteto-row .pstack-poteto-switch { position: static; }
+.pstack-poteto-row .pstack-poteto-switch:after { content: ""; border-radius: var(--dsw-radius-md); position: absolute; inset: 0; }
+.pstack-poteto-row:has(.pstack-poteto-switch:focus-visible) { background: var(--dsw-alias-interactive-bg-hover); }
+@media (hover: hover) {
+  .pstack-poteto-row:has(.pstack-poteto-switch:not(:disabled)):hover { background: var(--dsw-alias-interactive-bg-hover); }
+}
 `
 
-interface Props {
-  readonly sessionId: string | undefined
+function ensureStyle(): void {
+  if (typeof document === 'undefined' || document.getElementById(STYLE_ID) !== null) return
+  const style = document.createElement('style')
+  style.id = STYLE_ID
+  style.textContent = ROW_CSS
+  document.head.append(style)
 }
 
-interface State {
-  readonly enabled: boolean
-  readonly denied: string[]
-}
-
-async function request(path: string, init?: RequestInit): Promise<State> {
-  const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...init })
-  if (!response.ok) throw new Error(`switch request failed: ${response.status}`)
-  return await response.json() as State
-}
-
-export function PotetoToggle({ sessionId, t }: Props & PotetoToggleInjected) {
-  const [state, setState] = useState<State | undefined>(undefined)
-  const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
+export function PotetoToggle({ sessionId, readMode, selectMode, t }: PotetoToggleInjected) {
+  const [enabled, setEnabled] = useState<boolean | undefined>(undefined)
+  const [pending, setPending] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
 
   useEffect(() => {
-    if (sessionId === undefined) return
     let live = true
-    setState(undefined)
-    setFailed(false)
-    request(`${POTETO_STATE_PATH}?session=${encodeURIComponent(sessionId)}`)
-      .then(next => { if (live) setState(next) })
-      .catch(() => { if (live) setFailed(true) })
+    ensureStyle()
+    setEnabled(undefined)
+    setFailure(null)
+    readMode().then(value => { if (live) setEnabled(value) }, () => { if (live) setFailure(null) })
     return () => { live = false }
-  }, [sessionId])
+  }, [sessionId, readMode])
 
-  if (sessionId === undefined || state === undefined) return null
-  const toggle = async (): Promise<void> => {
-    setBusy(true)
-    setFailed(false)
-    try {
-      setState(await request(POTETO_STATE_PATH, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ session: sessionId, enabled: !state.enabled }),
-      }))
-    } catch {
-      setFailed(true)
-    } finally {
-      setBusy(false)
-    }
+  if (enabled === undefined) return null
+
+  const select = (next: boolean): void => {
+    setPending(true)
+    setFailure(null)
+    selectMode(next).then(
+      error => {
+        if (error === null) setEnabled(next)
+        else setFailure(error)
+      },
+      error => { setFailure(error instanceof Error ? error.message : String(error)) },
+    ).finally(() => { setPending(false) })
   }
-  const label = state.enabled ? t('switchOn') : t('switchOff')
+
   return (
-    <>
-      <style>{CSS}</style>
-      <button
-        type="button"
-        className="pstack-switch"
-        data-on={state.enabled ? 'true' : 'false'}
-        data-busy={busy ? 'true' : 'false'}
-        disabled={busy}
-        aria-pressed={state.enabled}
-        title={state.enabled ? t('switchTitleOn') : t('switchTitleOff')}
-        onClick={() => { void toggle() }}
-      >
-        <span className="pstack-switch-dot" aria-hidden="true" />
-        {busy ? t('switchBusy') : label}
-      </button>
-    </>
+    <div className="pstack-poteto-row" title={failure ?? undefined}>
+      <span className="pstack-poteto-label">
+        <span>{t('switchLabel')}</span>
+        <Tooltip label={t('switchDescription')} side="top" delayMs={300} maxWidth={300} portal openOnClick>
+          <Button variant="ghost" size="sm" className="pstack-poteto-info" aria-label={t('switchInfoLabel')}>
+            <IconInfoOutlineRegular size={11} aria-hidden="true" />
+          </Button>
+        </Tooltip>
+      </span>
+      <Switch
+        className="pstack-poteto-switch"
+        checked={enabled}
+        disabled={pending}
+        label={t('switchLabel')}
+        onChange={select}
+      />
+    </div>
   )
 }

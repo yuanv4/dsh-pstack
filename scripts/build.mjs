@@ -23,7 +23,7 @@ await build({
   platform: 'browser',
   format: 'cjs',
   jsx: 'automatic',
-  external: ['react', 'react/*'],
+  external: ['react', 'react/*', '@deepseek-ai/dsh-client-ui-primitives'],
   logLevel: 'warning',
 })
 

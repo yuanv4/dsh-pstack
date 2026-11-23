@@ -13,7 +13,7 @@ import type { PstackSettingsInjected } from './PstackSettings.tsx'
 import { en, zh } from './locales.ts'
 import type { PstackSettingsKey } from './locales.ts'
 import { PLUGIN_ID, ROLE_EDITOR_ENTRY_ID } from '../ids.ts'
-import { listenForCatalogChanges } from './api.ts'
+import { listenForCatalogChanges, readPotetoState, setPotetoState } from './api.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -129,14 +129,25 @@ export function apply(ctx: Context): void {
     id: ROLE_EDITOR_ENTRY_ID,
     inject: (): PstackSettingsInjected => ({ t, subscribeCatalogChanges }),
   }, PstackDetailAction))
-  // Session header switch: poteto workflow on/off for the open session. The slot
-  // engine passes the session id to `inject`, so the toggle never guesses it.
-  const switchSlot = 'conversation.session.header.actions'
+  // Model-menu switch: sits beside the Agent Teams row. The slot engine passes
+  // the session id to `inject`, so the toggle never guesses it.
+  const switchSlot = 'conversation.input.model.options'
   ctx.slots.inject(switchSlot as never, () => ctx.slots.register({
     name: switchSlot,
     id: 'pstack-poteto-switch',
-    order: 40,
     locale: namespace,
-    inject: (sessionId: string) => ({ sessionId, t }),
+    inject: (sessionId: string) => ({
+      sessionId,
+      t,
+      readMode: async () => (await readPotetoState(sessionId)).enabled,
+      selectMode: async (enabled: boolean) => {
+        try {
+          await setPotetoState(sessionId, enabled)
+          return null
+        } catch (error: unknown) {
+          return error instanceof Error ? error.message : 'switch failed'
+        }
+      },
+    }),
   } as never, PotetoToggle as never))
 }

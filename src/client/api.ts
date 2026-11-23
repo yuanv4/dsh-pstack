@@ -1,6 +1,6 @@
 import type { CatalogResult } from '../catalog-types.ts'
 import type { Overlay } from '../overlay-model.ts'
-import { SETTINGS_SAVE_PATH, SETTINGS_SNAPSHOT_PATH } from '../ids.ts'
+import { POTETO_STATE_PATH, SETTINGS_SAVE_PATH, SETTINGS_SNAPSHOT_PATH } from '../ids.ts'
 
 export interface SettingsSnapshot {
   catalog: CatalogResult
@@ -54,4 +54,17 @@ export function loadSettingsSnapshot(signal?: AbortSignal): Promise<SettingsSnap
 
 export function saveSettingsOverlay(overlay: Overlay): Promise<{ path: string; overlay: Overlay }> {
   return jsonRequest<{ path: string; overlay: Overlay }>(SETTINGS_SAVE_PATH, 'PUT', { overlay })
+}
+
+export interface PotetoState {
+  readonly enabled: boolean
+  readonly denied: string[]
+}
+
+export function readPotetoState(sessionId: string, signal?: AbortSignal): Promise<PotetoState> {
+  return jsonRequest<PotetoState>(`${POTETO_STATE_PATH}?session=${encodeURIComponent(sessionId)}`, 'GET', undefined, signal)
+}
+
+export function setPotetoState(sessionId: string, enabled: boolean): Promise<PotetoState> {
+  return jsonRequest<PotetoState>(POTETO_STATE_PATH, 'POST', { session: sessionId, enabled })
 }
