@@ -33,6 +33,7 @@ try {
   const commands = []
   const sections = []
   const prompt = { section: section => { sections.push(section); return () => {} } }
+  const registeredTools = []
   const tools = { get: () => undefined, restrict: () => () => {} }
   const agent = { session: { id: 'smoke-session', header: { origin: 'user' } }, ctx: { get: name => ({ tools, systemPrompt: prompt })[name] } }
   const services = {
@@ -41,7 +42,7 @@ try {
   }
   const ctx = {
     get: name => services[name],
-    tools: { register: () => {} },
+    tools: { register: tool => { registeredTools.push(tool) } },
     skills: { registerProvider: factory => { providers.push(factory) } },
     on: () => () => {},
     inject: () => {},
@@ -49,6 +50,10 @@ try {
   const { apply } = await import(pathToFileURL(join(pkg, 'harness/pstack/dsh/dist/index.js')).href)
   apply(ctx)
   assert.equal(providers.length, 1)
+  const spawn = registeredTools.find(tool => tool.name === 'pstack_spawn')
+  const interrupt = registeredTools.find(tool => tool.name === 'pstack_interrupt')
+  assert.ok(spawn && 'name' in spawn.parameters.properties, 'packaged pstack_spawn must accept name')
+  assert.ok(interrupt && 'agent' in interrupt.parameters.properties, 'packaged pstack_interrupt must accept agent')
   const provider = providers[0]()
   const skills = await provider.list()
   const skillsRoot = join(pkg, 'harness/pstack/dsh/generated/skills')
@@ -87,7 +92,7 @@ try {
   assert.equal(sections.length, 1, 'enabling poteto must register a prompt section')
   assert.equal(sections[0].name, 'pstack:poteto-workflow')
   assert.equal(sections[0].text, poteto.content)
-  console.log(`Package smoke passed using packed apply: ${skills.length} skills and matching nonempty poteto prompt (fake host, not live DSH activation)`)
+  console.log(`Package smoke passed using packed apply: ${skills.length} skills, ${registeredTools.length} tools, and matching nonempty poteto prompt (fake host, not live DSH activation)`)
 } finally {
   if (previousHome === undefined) delete process.env.DSH_HOME
   else process.env.DSH_HOME = previousHome
