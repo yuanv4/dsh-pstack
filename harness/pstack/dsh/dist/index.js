@@ -851,8 +851,6 @@ function registerPotetoMode(ctx) {
 
 // harness/pstack/dsh/src/http-trust.ts
 function trustedRequest(req) {
-  const remote = req.socket.remoteAddress;
-  if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") return false;
   if (req.headers["sec-fetch-site"] === "cross-site") return false;
   const host = req.headers.host;
   if (host === void 0) return false;

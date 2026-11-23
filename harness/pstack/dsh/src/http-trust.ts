@@ -1,9 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-/** Loopback + same-origin. Copied shape from dsh-oauth-login `src/auth-routes.ts`. */
+/** Same-origin fence. The connection layer owns authentication and Host trust; this only blocks cross-site reads. */
 export function trustedRequest(req: IncomingMessage): boolean {
-  const remote = req.socket.remoteAddress
-  if (remote !== '127.0.0.1' && remote !== '::1' && remote !== '::ffff:127.0.0.1') return false
   if (req.headers['sec-fetch-site'] === 'cross-site') return false
   const host = req.headers.host
   if (host === undefined) return false
