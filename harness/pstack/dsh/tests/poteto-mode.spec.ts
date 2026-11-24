@@ -55,7 +55,7 @@ interface Harness {
   sections: string[]
   agents: Agent[]
   emit(event: string, payload?: unknown): void
-  preStep(payload: { agent: Agent; messages: Array<{ id: string; source: { kind: string } }> }, decision?: { kind: string; messages: unknown[] }): Promise<{ kind: string; messages: unknown[] }>
+  hasListener(event: string): boolean
 }
 
 function harness(primary?: Agent): Harness {
@@ -91,9 +91,8 @@ function harness(primary?: Agent): Harness {
     emit(event, payload) {
       listeners.get(event)?.(payload)
     },
-    async preStep(payload, decision = { kind: 'enter', messages: [] }) {
-      const handler = listeners.get('agent/pre-step') as unknown as (payload: unknown, next: () => Promise<unknown>) => Promise<{ kind: string; messages: unknown[] }>
-      return await handler(payload, async () => decision)
+    hasListener(event) {
+      return listeners.has(event)
     },
   }
 }
@@ -172,27 +171,16 @@ describe('poteto switch', () => {
     assert.deepEqual(test.tools.denies.at(-1), ['subagent', 'subagent_fork'])
   })
 
-  it('appends one reminder per new user turn while on', async () => {
+  it('keeps the prompt section without registering a per-turn reminder', async () => {
     await writeModes(new Set())
     const test = harness()
     const api = registerPotetoMode(test.ctx)
+    assert.equal(test.hasListener('agent/pre-step'), false)
     await api.setEnabled('session-root', true)
-    const userMessage = { id: 'm1', source: { kind: 'user' } }
-    const first = await test.preStep({ agent: test.agent, messages: [userMessage] })
-    assert.equal(first.messages.length, 1)
-    assert.match(JSON.stringify(first.messages[0]), /Poteto workflow is active/)
-    const repeat = await test.preStep({ agent: test.agent, messages: [userMessage] })
-    assert.equal(repeat.messages.length, 0)
-    const next = await test.preStep({ agent: test.agent, messages: [{ id: 'm2', source: { kind: 'user' } }] })
-    assert.equal(next.messages.length, 1)
-  })
-
-  it('leaves turns alone while the switch is off', async () => {
-    await writeModes(new Set())
-    const test = harness()
-    registerPotetoMode(test.ctx)
-    const result = await test.preStep({ agent: test.agent, messages: [{ id: 'm1', source: { kind: 'user' } }] })
-    assert.equal(result.messages.length, 0)
+    assert.deepEqual(test.sections, [potetoSkillText()])
+    assert.equal(test.hasListener('agent/pre-step'), false)
+    await api.setEnabled('session-root', false)
+    assert.equal(test.hasListener('agent/pre-step'), false)
   })
 
   it('restores the switch for a live session on startup', async () => {

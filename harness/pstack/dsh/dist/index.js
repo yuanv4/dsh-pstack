@@ -692,13 +692,11 @@ function resolveCallModel(routes, modelArg, providerArg) {
 import { readFileSync } from "node:fs";
 import { dirname as dirname3, join as join5 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
-import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import { writeFileAtomic as writeFileAtomic2 } from "@deepseek-ai/dsh-atomic-write";
 var MODE_FILENAME = "pstack-poteto.json";
 var NATIVE_DELEGATION_TOOLS = ["subagent", "subagent_fork"];
 var SECTION_NAME = "pstack:poteto-workflow";
 var SECTION_ORDER = 10;
-var REMINDER = "Poteto workflow is active. Follow the poteto-mode instructions in the system prompt strictly, and do not skip any required step or rule it names. Delegate only through pstack_spawn so the role mapping decides the route.";
 function modePath(dshHome = resolveDshHome()) {
   return join5(dshHome, MODE_FILENAME);
 }
@@ -758,7 +756,6 @@ function sameDenials(denied, wanted) {
 function registerPotetoMode(ctx, hooks = {}) {
   const modes = readModes();
   const applied = /* @__PURE__ */ new Map();
-  const remindedFor = /* @__PURE__ */ new WeakMap();
   const agentsRuntime = () => ctx.get("agents");
   const agentOf = (sessionId) => agentsRuntime()?.get(sessionId);
   const applyTo = (agent) => {
@@ -838,20 +835,6 @@ function registerPotetoMode(ctx, hooks = {}) {
   ctx.on("agent/disposed", (payload) => {
     applied.delete(payload.agent);
   });
-  ctx.on("agent/pre-step", async (payload, next) => {
-    const decision = await next();
-    if (decision.kind === "reject") return decision;
-    if (!isRootAgent(payload.agent) || !isSessionEnabled(ctx, modes, sessionIdOf(payload.agent))) return decision;
-    applyTo(payload.agent);
-    const latest = payload.messages.filter((message) => message.source?.kind === "user").at(-1);
-    if (latest === void 0 || remindedFor.get(payload.agent) === latest.id) return decision;
-    remindedFor.set(payload.agent, latest.id);
-    const reminder = createUserMessage({
-      content: [{ type: "text", text: REMINDER }],
-      source: { kind: "system-prompt" }
-    });
-    return { ...decision, messages: [...decision.messages, reminder] };
-  }, { prepend: true });
   ctx.on("tools/change", () => {
     reconcile();
   });

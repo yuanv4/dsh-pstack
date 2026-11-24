@@ -16,7 +16,6 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { parseSkillMarkdown } from './frontmatter.ts'
 import { resolveDshHome } from './home.ts'
@@ -27,8 +26,6 @@ export const MODE_FILENAME = 'pstack-poteto.json'
 export const NATIVE_DELEGATION_TOOLS = ['subagent', 'subagent_fork'] as const
 const SECTION_NAME = 'pstack:poteto-workflow'
 const SECTION_ORDER = 10
-/** One-line reinforcement appended to every new user turn while the switch is on. */
-const REMINDER = 'Poteto workflow is active. Follow the poteto-mode instructions in the system prompt strictly, and do not skip any required step or rule it names. Delegate only through pstack_spawn so the role mapping decides the route.'
 
 interface ModeFile {
   version: 1
@@ -149,8 +146,6 @@ interface AgentCreatedPayload {
   readonly agent: Agent
 }
 
-type PreStepDecision = { readonly kind: 'reject' } | { readonly kind: 'enter'; readonly messages: UserMessage[]; readonly startsRequestSeries?: true }
-
 const sessionIdOf = (agent: Agent): string => String(agent.session.id)
 const isRootAgent = (agent: Agent): boolean => agent.session.header.origin !== 'subagent'
 
@@ -189,7 +184,6 @@ function sameDenials(denied: ReadonlySet<string>, wanted: readonly string[]): bo
 export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): PotetoSwitch {
   const modes = readModes()
   const applied = new Map<Agent, Applied>()
-  const remindedFor = new WeakMap<Agent, unknown>()
   const agentsRuntime = (): AgentRuntime | undefined => ctx.get('agents') as AgentRuntime | undefined
   const agentOf = (sessionId: string): Agent | undefined => agentsRuntime()?.get(sessionId)
 
@@ -289,26 +283,6 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
   ctx.on('agent/disposed', (payload: AgentCreatedPayload) => {
     applied.delete(payload.agent)
   })
-
-  // A system prompt section is assembled for every step, so it never expires.
-  // The reminder exists to counter drift: one short line per new user turn.
-  ctx.on('agent/pre-step', async (
-    payload: { agent: Agent; messages: UserMessage[] },
-    next: () => Promise<PreStepDecision>,
-  ): Promise<PreStepDecision> => {
-    const decision = await next()
-    if (decision.kind === 'reject') return decision
-    if (!isRootAgent(payload.agent) || !isSessionEnabled(ctx, modes, sessionIdOf(payload.agent))) return decision
-    applyTo(payload.agent)
-    const latest = payload.messages.filter(message => message.source?.kind === 'user').at(-1)
-    if (latest === undefined || remindedFor.get(payload.agent) === latest.id) return decision
-    remindedFor.set(payload.agent, latest.id)
-    const reminder = createUserMessage({
-      content: [{ type: 'text', text: REMINDER }],
-      source: { kind: 'system-prompt' },
-    })
-    return { ...decision, messages: [...decision.messages, reminder] }
-  }, { prepend: true })
 
   ctx.on('tools/change', () => {
     reconcile()
