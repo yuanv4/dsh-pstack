@@ -16,7 +16,7 @@ Or from the CLI, which writes the `web` profile only:
 dsh plugin --profile web add github:yuanv4/dsh-pstack
 ```
 
-Then start a session and run `/poteto-mode`, or any bundled skill from the `/` menu.
+Then start a session and turn on the **poteto workflow** row in the model menu.
 
 ## What works differently here
 
@@ -28,17 +28,17 @@ The [DSH platform map](harness/pstack/dsh/generated/docs/harness/dsh.md) lists r
 
 ## Turn the switch on
 
-Skill text alone cannot stop a model from calling the native `subagent` tool, which knows nothing about the role mapping. So this plugin ships a session switch:
+The plugin is inert in a session until you turn it on. The control is the **poteto workflow** row in the model menu, next to **Enable Agent Teams**; there is no command and no skill entry point. The choice is stored per session in `$DSH_HOME/pstack-poteto.json` and restored on the next start; if the Web client is unavailable, add or remove the session id there and restart DSH.
 
-```text
-/pstack-poteto-mode on
-/pstack-poteto-mode status
-/pstack-poteto-mode off
-```
+While the switch is on, the session gets the whole workflow:
 
-The same switch is a row in the model menu, named `poteto workflow`, next to **Enable Agent Teams**. Toggling it switches the session. While it is on, the plugin denies `subagent` and `subagent_fork` for that agent and puts the poteto-mode instructions into that session's system prompt, so they are present on every request. It also appends one short reminder line to each new user turn, which is what the reference port does. The only way left to delegate is `pstack_spawn`, so every child gets its role's route or inherits this conversation. The optional `name` argument gives an Agent Teams teammate a stable task-board address. Use `pstack_interrupt` to stop a child by name or Session id. The switch persists per session in `$DSH_HOME/pstack-poteto.json` and is restored on the next start. It can be turned on only in the session that runs the workflow, not inside a delegate.
+- `pstack_catalog`, `pstack_overlay_read`, `pstack_overlay_write`, `pstack_spawn`, and `pstack_interrupt` are available, and the bundled skills are advertised to the model.
+- `subagent` and `subagent_fork` are denied for that agent, so the only way to delegate is `pstack_spawn` and every child gets its role's route or inherits this conversation. The optional `name` argument gives an Agent Teams teammate a stable task-board address; `pstack_interrupt` stops a child by name or Session id.
+- The poteto-mode instructions join that session's system prompt, so they are present on every request, and one short reminder line is appended to each new user turn.
 
-Without the switch, `/poteto-mode` still works as a skill, but nothing stops a delegation from skipping the route mapping.
+While the switch is off, the session has none of it: every bundled tool is withheld, every bundled skill leaves the model catalog and the `/` menu, and no prompt section is added. The native delegation tools are left alone. Saving skill text alone cannot stop a model from calling the native `subagent` tool, which knows nothing about the role mapping, which is why the switch withholds this plugin's own tools instead of relying on prose.
+
+A delegate inherits the switch from the session that started it, because it runs inside that session's workflow. The switch can be turned on only in the session that runs the workflow, not inside a delegate.
 
 ## Repository layout
 

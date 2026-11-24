@@ -21,6 +21,8 @@ The three files in `harness/pstack/dsh/adaptations/skills/setup-pstack/` are loc
 
 A skill's frontmatter decides how it is reached. The generator makes skills that upstream workflows invoke model-invocable, including their transitive workflow and principle dependencies. DSH loads these through the `skill` tool. Other entry points retain upstream's user-only flag. The explicit list is in `harness/pstack/dsh/adaptations/rewrites.mjs`.
 
+The session switch gates this whole catalog: while it is off for a session, the provider reports every bundled skill as neither model-invocable nor user-invocable, so nothing from this package appears in the model catalog or the `/` menu.
+
 ## Tools
 
 | Upstream (Cursor) | DSH |
@@ -33,6 +35,8 @@ A skill's frontmatter decides how it is reached. The generator makes skills that
 | Run another pstack skill | the `skill` tool, then follow the returned body |
 | `/loop` | `create_goal` for a finite objective or a managed background watcher. Neither provides timed wakeups; schedules require an explicit human request |
 | A built-in PR tool | `gh` through `pwsh` |
+
+The five pstack tools are withheld for any session whose switch is off, including delegates started from it, so the model cannot reach this plugin's tools without opting in.
 
 ## Subagent fields
 
@@ -78,14 +82,14 @@ Precedence follows upstream. An explicit `model` wins, then the role's line, the
 
 ## Enforcement
 
-Upstream gets route compliance from the Cursor harness, where a `Task` call names a model directly. Here a role name is only a request, and the native `subagent` tool ignores it. So the port adds a session switch, borrowed from [l246804/dsh-pstack](https://github.com/l246804/dsh-pstack):
+Upstream gets route compliance from the Cursor harness, where a `Task` call names a model directly. Here a role name is only a request, and the native `subagent` tool ignores it. So the port adds a session switch, borrowed from [l246804/dsh-pstack](https://github.com/l246804/dsh-pstack). The switch is the plugin's only control surface: a row in `conversation.input.model.options` beside DSH's Agent Teams row, whose slot passes the session id to `inject` and which calls `GET`/`POST /plugins/pstack-dsh/poteto`. There is no command and no skill entry point for it.
 
-- `/pstack-poteto-mode on` denies the native `subagent` and `subagent_fork` tools for that agent with `agent.ctx.tools.restrict({ deny })`, so `pstack_spawn` is the only delegation path left.
-- The same call puts `skills/poteto-mode/SKILL.md` into that session's system prompt as `pstack:poteto-workflow`. A section registered through `agent.ctx` is assembled for every step, so the text is present without a separate skill invocation.
-- `agent/pre-step` appends one short reminder line per new user turn, so drift after a long run or a compaction does not silently drop the workflow.
+- On: `agent.ctx.tools.restrict({ deny })` withholds the native `subagent` and `subagent_fork` tools for that agent, so `pstack_spawn` is the only delegation path left.
+- On: `skills/poteto-mode/SKILL.md` joins that session's system prompt as `pstack:poteto-workflow`. A section registered through `agent.ctx` is assembled for every step, so the text is present without a separate skill invocation.
+- On: `agent/pre-step` appends one short reminder line per new user turn, so drift after a long run or a compaction does not silently drop the workflow.
+- Off: the same `restrict` call withholds the five pstack tools instead, the prompt section is lifted, and the provider reports every bundled skill as neither model-invocable nor user-invocable, so nothing from this package reaches the model catalog or the `/` menu. Toggling calls the provider's `invalidate()`, which rebuilds the cached catalog for the changed session.
+- A delegate inherits the decision from the session that started it, because it runs inside that session's workflow; only a root session can turn the switch on.
 - The selection persists per session in `$DSH_HOME/pstack-poteto.json` and is reapplied on `agent/created`, on `tools/change`, and once at plugin start.
-- `off` lifts the restriction and removes the section. Delegates (sessions with `origin: subagent`) cannot turn it on.
-- The Web client renders the switch as a row in `conversation.input.model.options`, beside DSH's Agent Teams row; that slot passes the session id to `inject`, and the row calls `GET`/`POST /plugins/pstack-dsh/poteto`.
 
 ## Skipped in DSH
 

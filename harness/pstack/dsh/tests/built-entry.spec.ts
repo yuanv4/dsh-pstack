@@ -5,10 +5,12 @@ import { join } from 'node:path'
 import { it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
 import * as entry from '../dist/index.js'
+import { PSTACK_TOOLS } from '../src/ids.ts'
+import { NATIVE_DELEGATION_TOOLS, writeModes } from '../src/poteto-mode.ts'
 
 type Tool = { name: string; execute(args: Record<string, unknown>, context: unknown): Promise<unknown> }
-type Command = { name: string; description: string; handler(input: { agent: unknown; rawInput: string }): Promise<{ kind: string; text?: string }> }
-type PreStep = (payload: unknown, next: () => Promise<{ kind: string; messages: unknown[] }>) => Promise<{ kind: string; messages: unknown[] }>
+type ListedSkill = { name: string; invocation: { modelInvocable: boolean; userInvocable: boolean } }
+type Provider = { list(options?: { scope?: unknown }): Promise<ListedSkill[]> }
 
 async function isolatedHome(run: () => Promise<void>) {
   const prefix = join(tmpdir(), 'pstack-built-entry-')
@@ -68,48 +70,67 @@ it('routes through tools registered by the built entry', async () => isolatedHom
   await assert.rejects(run('pstack_overlay_write', { overlay: overlayFor('high') }), /not listed by DSH/)
 }))
 
-it('registers and removes poteto behavior through the built entry', async () => isolatedHome(async () => {
-  const commands: Command[] = []
-  const listeners = new Map<string, PreStep>()
-  const denies: string[][] = []
-  const sections: string[] = []
-  let lifts = 0
-  const tools = {
-    get: (name: string) => ['subagent', 'subagent_fork'].includes(name) ? { name } : undefined,
-    restrict: (filter: { deny?: readonly string[] }) => {
-      denies.push([...(filter.deny ?? [])])
-      return () => { lifts += 1 }
-    },
+it('applies the session switch surface through the built entry', async () => isolatedHome(async () => {
+  interface Host {
+    agent: { session: { id: string; header: { origin: string } } }
+    denies: string[][]
+    sections: string[]
+    skills: Provider
   }
-  const agentServices: Record<string, unknown> = { tools, systemPrompt: { section: (section: { text: string }) => {
-    sections.push(section.text)
-    return () => { sections.pop() }
-  } } }
-  const agent = { session: { id: 'live-session', header: { origin: 'user' } }, ctx: { get: (name: string) => agentServices[name] } }
-  const services: Record<string, unknown> = {
-    commands: { register: (command: Command) => { commands.push(command); return () => {} } },
-    agents: { list: () => [agent], get: (id: string) => id === agent.session.id ? agent : undefined },
+
+  /** One fake host boot, so the same packaged apply can be observed on both switch states. */
+  function boot(): Host {
+    const denies: string[][] = []
+    const sections: string[] = []
+    const names: string[] = [...PSTACK_TOOLS, ...NATIVE_DELEGATION_TOOLS]
+    const tools = {
+      get: (name: string) => names.includes(name) ? { name } : undefined,
+      restrict: (filter: { deny?: readonly string[] }) => {
+        denies.push([...(filter.deny ?? [])])
+        return () => {}
+      },
+    }
+    const agent = {
+      session: { id: 'live-session', header: { origin: 'user' } },
+      ctx: {
+        get: (name: string) => name === 'tools'
+          ? tools
+          : name === 'systemPrompt'
+            ? { section: (section: { text: string }) => { sections.push(section.text); return () => {} } }
+            : undefined,
+      },
+    }
+    const services: Record<string, unknown> = {
+      agents: { list: () => [agent], get: (id: string) => id === agent.session.id ? agent : undefined },
+    }
+    let skills: Provider | undefined
+    const skillProvider = {
+      registerProvider: (create: (control: { invalidate(): void }) => Provider) => {
+        skills = create({ invalidate: () => {} })
+        return () => {}
+      },
+    }
+    entry.apply({ get: (name: string) => services[name], on: () => () => {}, inject() {}, skills: skillProvider, tools: { register() {} } } as unknown as Context)
+    assert.ok(skills)
+    return { agent, denies, sections, skills }
   }
-  entry.apply({ get: (name: string) => services[name], on: (event: string, handler: PreStep) => { listeners.set(event, handler); return () => {} }, inject() {}, skills: { registerProvider() {} }, tools: { register() {} } } as unknown as Context)
-  const command = commands.find(item => item.name === 'pstack-poteto-mode')
-  assert.ok(command)
-  assert.match(command.description, /native subagent/)
-  const invoke = (rawInput: string) => command.handler({ agent, rawInput })
-  assert.match((await invoke('status')).text ?? '', /off/)
-  assert.equal((await invoke(' on ')).kind, 'success')
-  assert.deepEqual(denies, [['subagent', 'subagent_fork']])
-  assert.equal(sections.length, 1)
-  assert.match(sections[0], /poteto-mode/)
-  const preStep = listeners.get('agent/pre-step')
-  assert.ok(preStep)
-  const turn = (id: string) => preStep({ agent, messages: [{ id, source: { kind: 'user' } }] }, async () => ({ kind: 'enter', messages: [] }))
-  const decision = await turn('user-1')
-  assert.equal(decision.messages.length, 1)
-  assert.match(JSON.stringify(decision.messages[0]), /Poteto workflow is active/)
-  assert.match((await invoke('status')).text ?? '', /on/)
-  assert.equal((await invoke('off')).kind, 'success')
-  assert.equal(lifts, 1)
-  assert.deepEqual(sections, [])
-  assert.equal((await turn('user-2')).messages.length, 0)
+
+  const off = boot()
+  assert.deepEqual(off.denies.at(-1), [...PSTACK_TOOLS], 'switch off withholds every bundled tool')
+  assert.deepEqual(off.sections, [], 'switch off adds no prompt section')
+  const hidden = await off.skills.list({ scope: off.agent })
+  assert.ok(hidden.length > 0)
+  assert.deepEqual(hidden.filter(skill => skill.invocation.modelInvocable || skill.invocation.userInvocable), [], 'switch off withdraws the skills from both surfaces')
+
+  await writeModes(new Set(['live-session']))
+  const on = boot()
+  assert.deepEqual(on.denies.at(-1), [...NATIVE_DELEGATION_TOOLS], 'switch on withholds the native delegation tools')
+  assert.equal(on.sections.length, 1, 'switch on adds the poteto-mode prompt section')
+  assert.match(on.sections[0], /poteto-mode/)
+  const shown = await on.skills.list({ scope: on.agent })
+  const architect = shown.find(skill => skill.name === 'architect')
+  assert.equal(architect?.invocation.modelInvocable, true, 'switch on returns the bundled skills')
+  assert.equal(architect?.invocation.userInvocable, true)
+  assert.equal(shown.find(skill => skill.name === 'poteto-mode')?.invocation.modelInvocable, false)
   assert.equal('readModes' in entry, false)
 }))

@@ -14,6 +14,9 @@ export const TOOL_INTERRUPT = 'pstack_interrupt'
 export const TOOL_OVERLAY_READ = 'pstack_overlay_read'
 export const TOOL_OVERLAY_WRITE = 'pstack_overlay_write'
 
+/** Every tool above, in registration order. The session switch withholds them while it is off. */
+export const PSTACK_TOOLS = [TOOL_CATALOG, TOOL_OVERLAY_READ, TOOL_OVERLAY_WRITE, TOOL_SPAWN, TOOL_INTERRUPT] as const
+
 /** Default in-process spawn provider. `packages/bundle/base/cordis.patch.yml` `providerName: spawn`. */
 export const SPAWN_PROVIDER = 'spawn'
 

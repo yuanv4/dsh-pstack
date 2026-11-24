@@ -20,12 +20,12 @@ import {
   spawnTool,
   type ToolHost,
 } from './tools.ts'
-import { registerPotetoMode } from './poteto-mode.ts'
+import { registerPotetoMode, createPotetoSkillGate } from './poteto-mode.ts'
 import { registerPstackPotetoRoutes } from './poteto-routes.ts'
 import { registerPstackSettingsRoutes } from './settings-routes.ts'
 
 export const name = PLUGIN_ID
-export const inject = ['tools', 'skills', 'commands', 'agents']
+export const inject = ['tools', 'skills', 'agents']
 export { Config }
 export type { PluginConfig as ConfigType }
 
@@ -64,10 +64,17 @@ export function apply(ctx: Context, config?: PluginConfig): void {
   registerOne(ctx, overlayWriteTool(host))
   registerOne(ctx, spawnTool(host))
   registerOne(ctx, interruptTool(host))
-  ctx.skills.registerProvider(() => createSkillProvider())
-  const poteto = registerPotetoMode(ctx)
+  // The provider must be able to drop the bundled skills from a model catalog
+  // when the session switch changes, so the switch hands it an invalidation
+  // callback. Registering the provider first would leave no callback to hand.
+  let invalidateSkillCatalog = (): void => {}
+  const poteto = registerPotetoMode(ctx, { onChanged: () => { invalidateSkillCatalog() } })
+  ctx.skills.registerProvider(control => {
+    invalidateSkillCatalog = control.invalidate
+    return createSkillProvider(undefined, createPotetoSkillGate(ctx))
+  })
   ctx.inject(['webServer', 'connection'], webCtx => {
     registerPstackSettingsRoutes(webCtx, host)
-    if (poteto !== undefined) registerPstackPotetoRoutes(webCtx, poteto)
+    registerPstackPotetoRoutes(webCtx, poteto)
   })
 }

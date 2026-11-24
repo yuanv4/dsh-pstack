@@ -10,6 +10,23 @@ export function defaultSkillsRoot(): string {
   return join(dirname(fileURLToPath(import.meta.url)), '..', 'generated', 'skills')
 }
 
+/**
+ * Decide whether one viewer may see this bundle's skills on any surface.
+ *
+ * The registry hands providers its full view options, so `scope` is the viewing
+ * agent when the lookup came from a model catalog, the `skill` tool, or a user
+ * `/name` invocation. The lookup type narrows that away; this carrier recovers
+ * it without changing the provider contract for other consumers, which simply
+ * leave it undefined.
+ */
+export interface SkillLookup {
+  readonly signal?: AbortSignal
+  readonly scope?: unknown
+}
+
+/** Return whether the viewer behind a lookup may see the bundle on either surface. */
+export type SkillScopeGate = (scope: unknown) => boolean
+
 interface SkillRecord {
   name: string
   description: string
@@ -52,18 +69,29 @@ async function loadSkills(root: string): Promise<SkillRecord[]> {
   return records.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function createSkillProvider(skillsRoot = defaultSkillsRoot()) {
+export function createSkillProvider(skillsRoot = defaultSkillsRoot(), gate?: SkillScopeGate) {
+  /**
+   * Read the bundle for one lookup. A session-scoped gate withdraws the bundle
+   * from both surfaces: while the switch is off the skills leave the model
+   * catalog and the `/` menu alike, so one control decides both.
+   */
+  async function load(options: SkillLookup = {}): Promise<{ skills: SkillRecord[]; visible: boolean }> {
+    return {
+      skills: await loadSkills(skillsRoot),
+      visible: gate === undefined ? true : gate(options.scope),
+    }
+  }
   return {
     name: SKILL_PROVIDER_NAME,
-    async list() {
-      const skills = await loadSkills(skillsRoot)
+    async list(options: SkillLookup = {}) {
+      const { skills, visible } = await load(options)
       return skills.map(skill => ({
         name: skill.name,
         description: skill.description,
         ...skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse },
         invocation: {
-          modelInvocable: skill.modelInvocable,
-          userInvocable: skill.userInvocable,
+          modelInvocable: visible && skill.modelInvocable,
+          userInvocable: visible && skill.userInvocable,
         },
         provider: SKILL_PROVIDER_NAME,
         source: 'bundled' as const,
@@ -73,8 +101,8 @@ export function createSkillProvider(skillsRoot = defaultSkillsRoot()) {
         path: join(skill.dir, 'SKILL.md'),
       }))
     },
-    async get(candidate: { name: string; locator?: unknown }) {
-      const skills = await loadSkills(skillsRoot)
+    async get(candidate: { name: string; locator?: unknown }, options: SkillLookup = {}) {
+      const { skills, visible } = await load(options)
       const skill = skills.find(entry => entry.name === candidate.name)
       if (skill === undefined) return undefined
       return {
@@ -82,8 +110,8 @@ export function createSkillProvider(skillsRoot = defaultSkillsRoot()) {
         description: skill.description,
         ...skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse },
         invocation: {
-          modelInvocable: skill.modelInvocable,
-          userInvocable: skill.userInvocable,
+          modelInvocable: visible && skill.modelInvocable,
+          userInvocable: visible && skill.userInvocable,
         },
         provider: SKILL_PROVIDER_NAME,
         source: 'bundled' as const,

@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Answer the user's question about pstack, hand them a prompt they can send, and link the file the answer came from. For a help question, don't start the work. The user asked how, and a pstack run spends real tokens, so let them send the prompt.
 
-A message that asks for work, such as "use pstack to fix this bug", is not a help question. Read [`poteto-mode`](../poteto-mode/SKILL.md), do the work under it, and mention `/pstack-poteto-mode on` for persistent session enforcement.
+A message that asks for work, such as "use pstack to fix this bug", is not a help question. Read [`poteto-mode`](../poteto-mode/SKILL.md), do the work under it, and mention the **poteto workflow** row in the model menu, which keeps it on for the session.
 
 This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. The links here point into the installed plugin, which the user may not be able to open, so give the user the file's public copy: `https://github.com/yuanv4/dsh-pstack/blob/main/` followed by its path.
 
@@ -48,7 +48,7 @@ DSH does not have Custom Modes or cloud agent machines. The parent prepares loca
 
 `/poteto-mode` matches the task to a playbook, copies the playbook's steps into the todo list, and runs the other skills as the steps need them. A good prompt states the goal and how to tell it's done. It doesn't list skills, because a hand-written sequence tends to drop or reorder steps the playbook would keep. Read [`references/prompting.md`](references/prompting.md) before you help word one. [Guide page 2](../../docs/guide/02-poteto-mode.md) has examples.
 
-For persistent session enforcement, use `/pstack-poteto-mode on`. Use `/pstack-poteto-mode off` to turn it off. Mid-chat, "new task" makes the mode match a fresh playbook. `/poteto-mode` already uses `poteto-agent` for the subagents its playbook steps spawn. To get the same style from a subagent of your own, spawn it with `role: poteto-agent`.
+The session mode is the **poteto workflow** row in the model menu: turn it on to apply the workflow to every step of the session and off to stop it. DSH has no per-message mode. Mid-chat, "new task" makes the mode match a fresh playbook. `/poteto-mode` already uses `poteto-agent` for the subagents its playbook steps spawn. To get the same style from a subagent of your own, spawn it with `role: poteto-agent`.
 
 ## Pick a skill
 
@@ -128,7 +128,7 @@ Principles are one-rule skills that `/poteto-mode` reads and cites in its replie
 
 | Symptom | Fix |
 |---|---|
-| The mode stopped applying after a few turns | Use `/pstack-poteto-mode on` for session enforcement, or start each task with `/poteto-mode`. |
+| The mode stopped applying after a few turns | Turn the **poteto workflow** row in the model menu on; it applies to every step of the session. |
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
 | A new model choice had no effect | Check the saved role route in Plugins → pstack-dsh → Configure and the current session route. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |

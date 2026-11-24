@@ -1,14 +1,15 @@
 /**
  * Session-scoped poteto switch, modelled on l246804/dsh-pstack's poteto toggle.
  *
- * Skill text alone cannot stop a model from calling the native `subagent` tool,
- * which bypasses the role mapping entirely. So while the switch is on for a
- * session, this plugin denies the native delegation tools for that agent and puts
- * the poteto-mode skill text into that session's system prompt. Every delegation
- * then has to go through `pstack_spawn`, where the overlay decides the route.
+ * The switch owns this plugin's whole per-session surface. While it is on for a
+ * session, the bundled tools stay available, the native delegation tools are
+ * denied (so every delegation goes through `pstack_spawn` and the overlay route),
+ * the poteto-mode text joins the session prompt, and the bundled skills are
+ * advertised to the model. While it is off, the opposite holds: the native
+ * delegation tools are left alone and every bundled tool and skill is withheld.
  *
- * The same state is reachable three ways: `/pstack-poteto-mode`, the session
- * header toggle in the Web client, and `$DSH_HOME/pstack-poteto.json`.
+ * The switch is controlled from the model menu row in the Web client and stored
+ * per session in `$DSH_HOME/pstack-poteto.json`.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -19,8 +20,8 @@ import { createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { parseSkillMarkdown } from './frontmatter.ts'
 import { resolveDshHome } from './home.ts'
+import { PSTACK_TOOLS } from './ids.ts'
 
-export const COMMAND_NAME = 'pstack-poteto-mode'
 export const MODE_FILENAME = 'pstack-poteto.json'
 /** Native delegation tools that would bypass the role mapping. */
 export const NATIVE_DELEGATION_TOOLS = ['subagent', 'subagent_fork'] as const
@@ -36,14 +37,14 @@ interface ModeFile {
 
 export interface PotetoState {
   readonly enabled: boolean
-  /** Native tools currently denied for the live agent, in registration order. */
+  /** Tools currently denied for the live agent, in registration order. */
   readonly denied: string[]
 }
 
 export interface PotetoSwitch {
   read(sessionId: string): PotetoState
   setEnabled(sessionId: string, enabled: boolean): Promise<PotetoState>
-  /** Reapply the restriction and prompt section for a live agent. */
+  /** Reapply the tool surface, prompt section, and skill availability for a live agent. */
   sync(sessionId: string): void
 }
 
@@ -91,18 +92,57 @@ interface AgentRuntime {
   get(sessionId: string): Agent | undefined
 }
 
-interface CommandInvocation {
-  readonly agent: Agent
-  readonly rawInput: string
+/** A session id carried by the viewing scope of a model-facing skill lookup. */
+function sessionIdOfScope(scope: unknown): string | undefined {
+  const session = (scope as { session?: { id?: unknown } } | undefined)?.session
+  const id = session?.id
+  return typeof id === 'string' && id.length > 0 ? id : undefined
 }
 
-interface CommandRuntime {
-  register(definition: {
-    name: string
-    description: string
-    input?: { hint: string }
-    handler: (invocation: CommandInvocation) => { kind: 'success'; text?: string } | { kind: 'error'; text: string } | Promise<{ kind: 'success'; text?: string } | { kind: 'error'; text: string }>
-  }): () => void
+/**
+ * Follow the delegation chain to the switch.
+ *
+ * A delegate runs inside the workflow of the session that started it, so an
+ * enabled ancestor enables the child. Walking `parentSession` also protects the
+ * chain against a malformed or cyclic header: each id is visited once.
+ */
+function isSessionEnabled(ctx: Context, sessions: ReadonlySet<string>, sessionId: string): boolean {
+  const agents = ctx.get('agents') as AgentRuntime | undefined
+  const seen = new Set<string>()
+  let cursor: string | undefined = sessionId
+  while (cursor !== undefined && !seen.has(cursor)) {
+    if (sessions.has(cursor)) return true
+    seen.add(cursor)
+    cursor = agents?.get(cursor)?.session.header.parentSession
+  }
+  return false
+}
+
+/**
+ * Build the gate that keeps the bundled skills out of sessions that never
+ * opted in.
+ *
+ * DSH advertises every skill whose invocation policy allows it, so without this
+ * gate the whole poteto pack reaches the model catalog and the `/` menu of any
+ * session that merely has the plugin installed. The switch owns that surface:
+ * while it is off the provider reports every bundled skill as neither
+ * model-invocable nor user-invocable, which removes it from both surfaces and
+ * rejects a direct `skill` load.
+ *
+ * A lookup with no agent scope has no session switch to consult, so it keeps the
+ * authored policy.
+ */
+export function createPotetoSkillGate(ctx: Context): (scope: unknown) => boolean {
+  return (scope) => {
+    const sessionId = sessionIdOfScope(scope)
+    return sessionId === undefined || isSessionEnabled(ctx, readModes(), sessionId)
+  }
+}
+
+/** Follow changes that other registrations must reflect, such as catalog invalidation. */
+export interface PotetoModeHooks {
+  /** Called after the persisted switch state changed. */
+  onChanged?(): void
 }
 
 interface AgentCreatedPayload {
@@ -114,82 +154,115 @@ type PreStepDecision = { readonly kind: 'reject' } | { readonly kind: 'enter'; r
 const sessionIdOf = (agent: Agent): string => String(agent.session.id)
 const isRootAgent = (agent: Agent): boolean => agent.session.header.origin !== 'subagent'
 
+/** One agent's applied surface, diffed on every reconcile pass. */
 interface Applied {
-  tools: Set<string>
+  /** Tool names the single current restriction denies. */
+  denied: Set<string>
+  toolDisposers: Array<() => void>
   section: (() => void) | undefined
-  disposers: Array<() => void>
 }
 
 /**
- * Install the switch and its command. Call once from `apply`.
+ * Tools the switch withholds for one agent.
  *
- * Nothing is registered when the host does not expose the commands service,
- * which keeps unit tests and headless hosts working.
+ * Off withholds this plugin's own tools for the session and every delegate it
+ * started. On withholds the native delegation tools in the root session, so
+ * `pstack_spawn` is the only delegation path left; a delegate keeps the native
+ * tools it already had.
  */
-export function registerPotetoMode(ctx: Context): PotetoSwitch | undefined {
-  const commands = ctx.get('commands') as CommandRuntime | undefined
-  if (commands === undefined) return undefined
+function withheldTools(enabled: boolean, root: boolean): readonly string[] {
+  if (!enabled) return PSTACK_TOOLS
+  return root ? NATIVE_DELEGATION_TOOLS : []
+}
+
+function sameDenials(denied: ReadonlySet<string>, wanted: readonly string[]): boolean {
+  return denied.size === wanted.length && wanted.every(name => denied.has(name))
+}
+
+/**
+ * Install the switch. Call once from `apply`.
+ *
+ * The switch is the plugin's only control surface: it is reached from the Web
+ * client's model-menu row, which talks to `registerPstackPotetoRoutes`, and its
+ * state lives in `$DSH_HOME/pstack-poteto.json`.
+ */
+export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): PotetoSwitch {
   const modes = readModes()
   const applied = new Map<Agent, Applied>()
   const remindedFor = new WeakMap<Agent, unknown>()
+  const agentsRuntime = (): AgentRuntime | undefined => ctx.get('agents') as AgentRuntime | undefined
+  const agentOf = (sessionId: string): Agent | undefined => agentsRuntime()?.get(sessionId)
 
+  /**
+   * Converge one agent's surface on its switch state. Re-running is free and
+   * idempotent: each piece is compared before anything is lifted or added.
+   */
   const applyTo = (agent: Agent): void => {
-    if (!isRootAgent(agent)) return
-    const record = applied.get(agent) ?? { tools: new Set<string>(), section: undefined, disposers: [] }
+    const enabled = isSessionEnabled(ctx, modes, sessionIdOf(agent))
+    const root = isRootAgent(agent)
+    const record = applied.get(agent) ?? { denied: new Set<string>(), toolDisposers: [], section: undefined }
     applied.set(agent, record)
 
     const tools = agent.ctx.get('tools') as ToolRuntime | undefined
-    const missing = tools === undefined ? [] : NATIVE_DELEGATION_TOOLS.filter(name => !record.tools.has(name) && tools.get(name, agent) !== undefined)
-    if (tools !== undefined && missing.length > 0) {
-      try {
-        record.disposers.push(tools.restrict({ deny: missing }))
-        for (const name of missing) record.tools.add(name)
-      } catch {
-        // The tool crossed out of the registry between the lookup and the call;
-        // the next tools/change reconciles it.
-      }
-    }
-
-    if (record.section === undefined) {
-      const prompt = agent.ctx.get('systemPrompt') as PromptRuntime | undefined
-      const text = potetoSkillText()
-      if (prompt !== undefined && text !== '') {
-        try {
-          const dispose = prompt.section({ name: SECTION_NAME, order: SECTION_ORDER, text, interpolate: false })
-          record.section = dispose
-          record.disposers.push(dispose)
-        } catch {
-          // Duplicate registration means another pass already added it.
+    if (tools !== undefined) {
+      const wanted = withheldTools(enabled, root).filter(name => tools.get(name, agent) !== undefined)
+      if (!sameDenials(record.denied, wanted)) {
+        for (const dispose of record.toolDisposers.splice(0)) {
+          try {
+            dispose()
+          } catch {
+            // Lifting twice is harmless.
+          }
+        }
+        record.denied.clear()
+        if (wanted.length > 0) {
+          try {
+            record.toolDisposers.push(tools.restrict({ deny: wanted }))
+            for (const name of wanted) record.denied.add(name)
+          } catch {
+            // A tool crossed out of the registry between the lookup and the call;
+            // the next tools/change reconciles it.
+          }
         }
       }
     }
-  }
 
-  const clear = (agent: Agent): void => {
-    const record = applied.get(agent)
-    if (record === undefined) return
-    for (const dispose of record.disposers.reverse()) {
+    if (enabled && root) {
+      if (record.section === undefined) {
+        const prompt = agent.ctx.get('systemPrompt') as PromptRuntime | undefined
+        const text = potetoSkillText()
+        if (prompt !== undefined && text !== '') {
+          try {
+            record.section = prompt.section({ name: SECTION_NAME, order: SECTION_ORDER, text, interpolate: false })
+          } catch {
+            // Duplicate registration means another pass already added it.
+          }
+        }
+      }
+    } else if (record.section !== undefined) {
       try {
-        dispose()
+        record.section()
       } catch {
         // Lifting twice is harmless.
       }
+      record.section = undefined
     }
-    applied.delete(agent)
   }
 
-  const agentOf = (sessionId: string): Agent | undefined => (ctx.get('agents') as AgentRuntime | undefined)?.get(sessionId)
+  /** Converge every live agent; a toggle can change the state of its delegates too. */
+  const reconcile = (): void => {
+    for (const agent of agentsRuntime()?.list() ?? []) applyTo(agent)
+  }
 
   const stateOf = (sessionId: string): PotetoState => {
     const agent = agentOf(sessionId)
     return {
       enabled: modes.has(sessionId),
-      denied: agent === undefined ? [] : [...(applied.get(agent)?.tools ?? [])],
+      denied: agent === undefined ? [] : [...(applied.get(agent)?.denied ?? [])],
     }
   }
 
   const sync = (sessionId: string): void => {
-    if (!modes.has(sessionId)) return
     const agent = agentOf(sessionId)
     if (agent !== undefined) applyTo(agent)
   }
@@ -199,55 +272,22 @@ export function registerPotetoMode(ctx: Context): PotetoSwitch | undefined {
     if (enabled && agent !== undefined && !isRootAgent(agent)) {
       throw new Error('the poteto switch is only available in the session that runs the workflow, not in a delegate')
     }
-    if (enabled) {
-      modes.add(sessionId)
-      await writeModes(modes)
-      if (agent !== undefined) applyTo(agent)
-    } else {
-      modes.delete(sessionId)
-      await writeModes(modes)
-      if (agent !== undefined) clear(agent)
-    }
+    if (enabled) modes.add(sessionId)
+    else modes.delete(sessionId)
+    await writeModes(modes)
+    reconcile()
+    hooks.onChanged?.()
     return stateOf(sessionId)
   }
 
   const switchApi: PotetoSwitch = { read: stateOf, setEnabled, sync }
 
-  commands.register({
-    name: COMMAND_NAME,
-    description: 'Turn the poteto workflow on or off for this session. While on, the native subagent tools are disabled so delegation has to use pstack_spawn and its role mapping.',
-    input: { hint: 'on | off | status' },
-    handler: async ({ agent, rawInput }) => {
-      const sessionId = sessionIdOf(agent)
-      const argument = (rawInput.trim().split(/\s+/)[0] ?? '').toLowerCase()
-      if (argument === '' || argument === 'status') {
-        const state = stateOf(sessionId)
-        return {
-          kind: 'success',
-          text: state.enabled
-            ? `poteto workflow: on. Denied here: ${state.denied.length === 0 ? 'nothing yet' : state.denied.join(', ')}.`
-            : 'poteto workflow: off. The native subagent tools are available.',
-        }
-      }
-      if (argument === 'on' || argument === 'off') {
-        try {
-          const state = await setEnabled(sessionId, argument === 'on')
-          return {
-            kind: 'success',
-            text: state.enabled
-              ? `poteto workflow: on. The native subagent tools are now denied for this session, so delegation goes through pstack_spawn and the role mapping in $DSH_HOME/pstack-dsh.json. The poteto-mode instructions joined the system prompt.`
-              : 'poteto workflow: off. The native subagent tools are available again.',
-          }
-        } catch (error) {
-          return { kind: 'error', text: error instanceof Error ? error.message : 'switch failed' }
-        }
-      }
-      return { kind: 'error', text: 'Usage: /pstack-poteto-mode on | off | status' }
-    },
+  ctx.on('agent/created', (payload: AgentCreatedPayload) => {
+    applyTo(payload.agent)
   })
 
-  ctx.on('agent/created', (payload: AgentCreatedPayload) => {
-    if (modes.has(sessionIdOf(payload.agent))) applyTo(payload.agent)
+  ctx.on('agent/disposed', (payload: AgentCreatedPayload) => {
+    applied.delete(payload.agent)
   })
 
   // A system prompt section is assembled for every step, so it never expires.
@@ -258,7 +298,7 @@ export function registerPotetoMode(ctx: Context): PotetoSwitch | undefined {
   ): Promise<PreStepDecision> => {
     const decision = await next()
     if (decision.kind === 'reject') return decision
-    if (!modes.has(sessionIdOf(payload.agent))) return decision
+    if (!isRootAgent(payload.agent) || !isSessionEnabled(ctx, modes, sessionIdOf(payload.agent))) return decision
     applyTo(payload.agent)
     const latest = payload.messages.filter(message => message.source?.kind === 'user').at(-1)
     if (latest === undefined || remindedFor.get(payload.agent) === latest.id) return decision
@@ -271,15 +311,11 @@ export function registerPotetoMode(ctx: Context): PotetoSwitch | undefined {
   }, { prepend: true })
 
   ctx.on('tools/change', () => {
-    for (const agent of (ctx.get('agents') as AgentRuntime | undefined)?.list() ?? []) {
-      if (modes.has(sessionIdOf(agent))) applyTo(agent)
-    }
+    reconcile()
   })
 
   // Agents created before this plugin applied never saw agent/created.
-  for (const agent of (ctx.get('agents') as AgentRuntime | undefined)?.list() ?? []) {
-    if (modes.has(sessionIdOf(agent))) applyTo(agent)
-  }
+  reconcile()
 
   return switchApi
 }

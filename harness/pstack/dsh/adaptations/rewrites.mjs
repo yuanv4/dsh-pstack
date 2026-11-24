@@ -131,7 +131,7 @@ const LOOP_RULES = [
   ['poteto-mode/playbooks/shipping.md', /under `\/loop` until it reports `COMPLETE` at the ceiling/g, 'as a managed background job until it reports `COMPLETE` at the ceiling'],
   ['poteto-mode/playbooks/autonomous-run.md', /^2\. Pick the wake mechanism.*$/m, "2. Define a finite autonomous objective and completion checks with `create_goal`. For an event, use a managed watcher or background job and collect its result. A goal does not provide fixed-time wakeups, and a time-based heartbeat is unavailable without a schedule explicitly requested by the human. Report this timing gap and audit progress whenever the session continues. Pick each subagent's reasoning effort for the job, per the Subagents section."],
   ['poteto-mode/playbooks/autopilot-full.md', /On the operator's go, arm `\/loop 1h` to audit until no delegated work is left, because long runs drift and agents stall silently\. Each tick/g, "On the operator's go, use `create_goal` for the finite objective of finishing delegated work. It does not provide hourly wakeups. Report that timed audits require an explicit human schedule request. Audit on each continuation until no delegated work is left, because long runs drift and agents stall silently. Each audit"],
-  ['poteto-help/SKILL.md', /and mention once that a Custom Mode keeps it on\./g, 'and mention `/pstack-poteto-mode on` for persistent session enforcement.'],
+  ['poteto-help/SKILL.md', /and mention once that a Custom Mode keeps it on\./g, 'and mention the **poteto workflow** row in the model menu, which keeps it on for the session.'],
   ['poteto-help/SKILL.md', /^1\. Install with `\/add-plugin pstack`.*$/m, '1. Install the DSH bundle `github:yuanv4/dsh-pstack` through Plugins.'],
   ['poteto-help/SKILL.md', /^2\. Run \[`\/setup-pstack`\].*$/m, '2. Optionally open Plugins → pstack-dsh → Configure to choose role routes. Without an overlay, roles inherit the conversation route.'],
   ['poteto-help/SKILL.md', /^- No `\$DSH_HOME\/pstack-dsh\.json` means.*$/m, '- No `$DSH_HOME/pstack-dsh.json` means every role inherits the conversation route.'],
@@ -140,9 +140,9 @@ const LOOP_RULES = [
   ['poteto-help/SKILL.md', /^Installing changes nothing until.*$/m, 'Use the `/` menu or `skill` tool to load skills. The [README](../../README.md) and [HARNESS.md](../../HARNESS.md) describe DSH setup. Offer to word the first prompt per [`references/prompting.md`](references/prompting.md).'],
   ['poteto-help/SKILL.md', /^If cost is the worry,.*$/m, 'If cost is the worry, explain that subagents and review panels use tokens. Use Plugins → pstack-dsh → Configure to choose cheaper routes or fewer panel seats. An unmapped role inherits the conversation route.'],
   ['poteto-help/SKILL.md', /^Other tools can read the skills,.*$/m, 'DSH does not have Custom Modes or cloud agent machines. The parent prepares local worktrees when agents need isolation.'],
-  ['poteto-help/SKILL.md', /Whether `\/poteto-mode` stays on depends on how the user starts it:[\s\S]*?Link \[Cursor's skills docs\]\(https:\/\/cursor\.com\/docs\/skills\) when this comes up\./m, 'For persistent session enforcement, use `/pstack-poteto-mode on`. Use `/pstack-poteto-mode off` to turn it off.'],
+  ['poteto-help/SKILL.md', /Whether `\/poteto-mode` stays on depends on how the user starts it:[\s\S]*?Link \[Cursor's skills docs\]\(https:\/\/cursor\.com\/docs\/skills\) when this comes up\./m, 'The session mode is the **poteto workflow** row in the model menu: turn it on to apply the workflow to every step of the session and off to stop it. DSH has no per-message mode.'],
   ['poteto-help/SKILL.md', /as cloud agents \|/g, 'with delegated agents |'],
-  ['poteto-help/SKILL.md', /^\| The mode stopped applying after a few turns \|.*$/m, '| The mode stopped applying after a few turns | Use `/pstack-poteto-mode on` for session enforcement, or start each task with `/poteto-mode`. |'],
+  ['poteto-help/SKILL.md', /^\| The mode stopped applying after a few turns \|.*$/m, '| The mode stopped applying after a few turns | Turn the **poteto workflow** row in the model menu on; it applies to every step of the session. |'],
   ['poteto-help/SKILL.md', /^\| Parallel agents overwrote each other \|.*$/m, '| Parallel agents overwrote each other | The parent prepares a separate local worktree for each isolated agent and passes its path in the brief. |'],
   ['poteto-help/SKILL.md', /^\| A new model choice had no effect \|.*$/m, '| A new model choice had no effect | Check the saved role route in Plugins → pstack-dsh → Configure and the current session route. |'],
   ['poteto-help/SKILL.md', /^\| A skill didn't load on its own \|.*$/m, '| A skill didn\'t load on its own | Invoke it from the slash menu or load it with the `skill` tool. |'],
@@ -174,6 +174,8 @@ const LEFTOVER = [
   ['cloud env', /environment: "(?:cloud|local)"/],
   ['cloud branch', /cloud_base_branch/],
   ['Cursor loop', /\/loop\b/],
+  // The session switch is the Web row only; no command may be advertised.
+  ['switch command', /\/pstack-poteto-mode/],
 ]
 
 export function rewrite(text, rel, dest, failures) {

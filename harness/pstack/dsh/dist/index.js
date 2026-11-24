@@ -11,6 +11,7 @@ var TOOL_SPAWN = "pstack_spawn";
 var TOOL_INTERRUPT = "pstack_interrupt";
 var TOOL_OVERLAY_READ = "pstack_overlay_read";
 var TOOL_OVERLAY_WRITE = "pstack_overlay_write";
+var PSTACK_TOOLS = [TOOL_CATALOG, TOOL_OVERLAY_READ, TOOL_OVERLAY_WRITE, TOOL_SPAWN, TOOL_INTERRUPT];
 var SPAWN_PROVIDER = "spawn";
 var SETTINGS_SNAPSHOT_PATH = "/plugins/pstack-dsh/settings";
 var POTETO_STATE_PATH = "/plugins/pstack-dsh/poteto";
@@ -129,18 +130,24 @@ async function loadSkills(root) {
   }
   return records.sort((a, b) => a.name.localeCompare(b.name));
 }
-function createSkillProvider(skillsRoot = defaultSkillsRoot()) {
+function createSkillProvider(skillsRoot = defaultSkillsRoot(), gate) {
+  async function load(options = {}) {
+    return {
+      skills: await loadSkills(skillsRoot),
+      visible: gate === void 0 ? true : gate(options.scope)
+    };
+  }
   return {
     name: SKILL_PROVIDER_NAME,
-    async list() {
-      const skills = await loadSkills(skillsRoot);
+    async list(options = {}) {
+      const { skills, visible } = await load(options);
       return skills.map((skill) => ({
         name: skill.name,
         description: skill.description,
         ...skill.whenToUse === void 0 ? {} : { whenToUse: skill.whenToUse },
         invocation: {
-          modelInvocable: skill.modelInvocable,
-          userInvocable: skill.userInvocable
+          modelInvocable: visible && skill.modelInvocable,
+          userInvocable: visible && skill.userInvocable
         },
         provider: SKILL_PROVIDER_NAME,
         source: "bundled",
@@ -150,8 +157,8 @@ function createSkillProvider(skillsRoot = defaultSkillsRoot()) {
         path: join(skill.dir, "SKILL.md")
       }));
     },
-    async get(candidate) {
-      const skills = await loadSkills(skillsRoot);
+    async get(candidate, options = {}) {
+      const { skills, visible } = await load(options);
       const skill = skills.find((entry) => entry.name === candidate.name);
       if (skill === void 0) return void 0;
       return {
@@ -159,8 +166,8 @@ function createSkillProvider(skillsRoot = defaultSkillsRoot()) {
         description: skill.description,
         ...skill.whenToUse === void 0 ? {} : { whenToUse: skill.whenToUse },
         invocation: {
-          modelInvocable: skill.modelInvocable,
-          userInvocable: skill.userInvocable
+          modelInvocable: visible && skill.modelInvocable,
+          userInvocable: visible && skill.userInvocable
         },
         provider: SKILL_PROVIDER_NAME,
         source: "bundled",
@@ -687,7 +694,6 @@ import { dirname as dirname3, join as join5 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import { writeFileAtomic as writeFileAtomic2 } from "@deepseek-ai/dsh-atomic-write";
-var COMMAND_NAME = "pstack-poteto-mode";
 var MODE_FILENAME = "pstack-poteto.json";
 var NATIVE_DELEGATION_TOOLS = ["subagent", "subagent_fork"];
 var SECTION_NAME = "pstack:poteto-workflow";
@@ -718,61 +724,98 @@ function potetoSkillText() {
     return "";
   }
 }
+function sessionIdOfScope(scope) {
+  const session = scope?.session;
+  const id = session?.id;
+  return typeof id === "string" && id.length > 0 ? id : void 0;
+}
+function isSessionEnabled(ctx, sessions, sessionId) {
+  const agents = ctx.get("agents");
+  const seen = /* @__PURE__ */ new Set();
+  let cursor = sessionId;
+  while (cursor !== void 0 && !seen.has(cursor)) {
+    if (sessions.has(cursor)) return true;
+    seen.add(cursor);
+    cursor = agents?.get(cursor)?.session.header.parentSession;
+  }
+  return false;
+}
+function createPotetoSkillGate(ctx) {
+  return (scope) => {
+    const sessionId = sessionIdOfScope(scope);
+    return sessionId === void 0 || isSessionEnabled(ctx, readModes(), sessionId);
+  };
+}
 var sessionIdOf = (agent) => String(agent.session.id);
 var isRootAgent = (agent) => agent.session.header.origin !== "subagent";
-function registerPotetoMode(ctx) {
-  const commands = ctx.get("commands");
-  if (commands === void 0) return void 0;
+function withheldTools(enabled, root) {
+  if (!enabled) return PSTACK_TOOLS;
+  return root ? NATIVE_DELEGATION_TOOLS : [];
+}
+function sameDenials(denied, wanted) {
+  return denied.size === wanted.length && wanted.every((name2) => denied.has(name2));
+}
+function registerPotetoMode(ctx, hooks = {}) {
   const modes = readModes();
   const applied = /* @__PURE__ */ new Map();
   const remindedFor = /* @__PURE__ */ new WeakMap();
+  const agentsRuntime = () => ctx.get("agents");
+  const agentOf = (sessionId) => agentsRuntime()?.get(sessionId);
   const applyTo = (agent) => {
-    if (!isRootAgent(agent)) return;
-    const record = applied.get(agent) ?? { tools: /* @__PURE__ */ new Set(), section: void 0, disposers: [] };
+    const enabled = isSessionEnabled(ctx, modes, sessionIdOf(agent));
+    const root = isRootAgent(agent);
+    const record = applied.get(agent) ?? { denied: /* @__PURE__ */ new Set(), toolDisposers: [], section: void 0 };
     applied.set(agent, record);
     const tools = agent.ctx.get("tools");
-    const missing = tools === void 0 ? [] : NATIVE_DELEGATION_TOOLS.filter((name2) => !record.tools.has(name2) && tools.get(name2, agent) !== void 0);
-    if (tools !== void 0 && missing.length > 0) {
-      try {
-        record.disposers.push(tools.restrict({ deny: missing }));
-        for (const name2 of missing) record.tools.add(name2);
-      } catch {
-      }
-    }
-    if (record.section === void 0) {
-      const prompt = agent.ctx.get("systemPrompt");
-      const text = potetoSkillText();
-      if (prompt !== void 0 && text !== "") {
-        try {
-          const dispose = prompt.section({ name: SECTION_NAME, order: SECTION_ORDER, text, interpolate: false });
-          record.section = dispose;
-          record.disposers.push(dispose);
-        } catch {
+    if (tools !== void 0) {
+      const wanted = withheldTools(enabled, root).filter((name2) => tools.get(name2, agent) !== void 0);
+      if (!sameDenials(record.denied, wanted)) {
+        for (const dispose of record.toolDisposers.splice(0)) {
+          try {
+            dispose();
+          } catch {
+          }
+        }
+        record.denied.clear();
+        if (wanted.length > 0) {
+          try {
+            record.toolDisposers.push(tools.restrict({ deny: wanted }));
+            for (const name2 of wanted) record.denied.add(name2);
+          } catch {
+          }
         }
       }
     }
-  };
-  const clear = (agent) => {
-    const record = applied.get(agent);
-    if (record === void 0) return;
-    for (const dispose of record.disposers.reverse()) {
+    if (enabled && root) {
+      if (record.section === void 0) {
+        const prompt = agent.ctx.get("systemPrompt");
+        const text = potetoSkillText();
+        if (prompt !== void 0 && text !== "") {
+          try {
+            record.section = prompt.section({ name: SECTION_NAME, order: SECTION_ORDER, text, interpolate: false });
+          } catch {
+          }
+        }
+      }
+    } else if (record.section !== void 0) {
       try {
-        dispose();
+        record.section();
       } catch {
       }
+      record.section = void 0;
     }
-    applied.delete(agent);
   };
-  const agentOf = (sessionId) => ctx.get("agents")?.get(sessionId);
+  const reconcile = () => {
+    for (const agent of agentsRuntime()?.list() ?? []) applyTo(agent);
+  };
   const stateOf = (sessionId) => {
     const agent = agentOf(sessionId);
     return {
       enabled: modes.has(sessionId),
-      denied: agent === void 0 ? [] : [...applied.get(agent)?.tools ?? []]
+      denied: agent === void 0 ? [] : [...applied.get(agent)?.denied ?? []]
     };
   };
   const sync = (sessionId) => {
-    if (!modes.has(sessionId)) return;
     const agent = agentOf(sessionId);
     if (agent !== void 0) applyTo(agent);
   };
@@ -781,53 +824,24 @@ function registerPotetoMode(ctx) {
     if (enabled && agent !== void 0 && !isRootAgent(agent)) {
       throw new Error("the poteto switch is only available in the session that runs the workflow, not in a delegate");
     }
-    if (enabled) {
-      modes.add(sessionId);
-      await writeModes(modes);
-      if (agent !== void 0) applyTo(agent);
-    } else {
-      modes.delete(sessionId);
-      await writeModes(modes);
-      if (agent !== void 0) clear(agent);
-    }
+    if (enabled) modes.add(sessionId);
+    else modes.delete(sessionId);
+    await writeModes(modes);
+    reconcile();
+    hooks.onChanged?.();
     return stateOf(sessionId);
   };
   const switchApi = { read: stateOf, setEnabled, sync };
-  commands.register({
-    name: COMMAND_NAME,
-    description: "Turn the poteto workflow on or off for this session. While on, the native subagent tools are disabled so delegation has to use pstack_spawn and its role mapping.",
-    input: { hint: "on | off | status" },
-    handler: async ({ agent, rawInput }) => {
-      const sessionId = sessionIdOf(agent);
-      const argument = (rawInput.trim().split(/\s+/)[0] ?? "").toLowerCase();
-      if (argument === "" || argument === "status") {
-        const state = stateOf(sessionId);
-        return {
-          kind: "success",
-          text: state.enabled ? `poteto workflow: on. Denied here: ${state.denied.length === 0 ? "nothing yet" : state.denied.join(", ")}.` : "poteto workflow: off. The native subagent tools are available."
-        };
-      }
-      if (argument === "on" || argument === "off") {
-        try {
-          const state = await setEnabled(sessionId, argument === "on");
-          return {
-            kind: "success",
-            text: state.enabled ? `poteto workflow: on. The native subagent tools are now denied for this session, so delegation goes through pstack_spawn and the role mapping in $DSH_HOME/pstack-dsh.json. The poteto-mode instructions joined the system prompt.` : "poteto workflow: off. The native subagent tools are available again."
-          };
-        } catch (error) {
-          return { kind: "error", text: error instanceof Error ? error.message : "switch failed" };
-        }
-      }
-      return { kind: "error", text: "Usage: /pstack-poteto-mode on | off | status" };
-    }
-  });
   ctx.on("agent/created", (payload) => {
-    if (modes.has(sessionIdOf(payload.agent))) applyTo(payload.agent);
+    applyTo(payload.agent);
+  });
+  ctx.on("agent/disposed", (payload) => {
+    applied.delete(payload.agent);
   });
   ctx.on("agent/pre-step", async (payload, next) => {
     const decision = await next();
     if (decision.kind === "reject") return decision;
-    if (!modes.has(sessionIdOf(payload.agent))) return decision;
+    if (!isRootAgent(payload.agent) || !isSessionEnabled(ctx, modes, sessionIdOf(payload.agent))) return decision;
     applyTo(payload.agent);
     const latest = payload.messages.filter((message) => message.source?.kind === "user").at(-1);
     if (latest === void 0 || remindedFor.get(payload.agent) === latest.id) return decision;
@@ -839,13 +853,9 @@ function registerPotetoMode(ctx) {
     return { ...decision, messages: [...decision.messages, reminder] };
   }, { prepend: true });
   ctx.on("tools/change", () => {
-    for (const agent of ctx.get("agents")?.list() ?? []) {
-      if (modes.has(sessionIdOf(agent))) applyTo(agent);
-    }
+    reconcile();
   });
-  for (const agent of ctx.get("agents")?.list() ?? []) {
-    if (modes.has(sessionIdOf(agent))) applyTo(agent);
-  }
+  reconcile();
   return switchApi;
 }
 
@@ -1071,7 +1081,7 @@ function registerPstackSettingsRoutes(ctx, host) {
 
 // harness/pstack/dsh/src/index.ts
 var name = PLUGIN_ID;
-var inject = ["tools", "skills", "commands", "agents"];
+var inject = ["tools", "skills", "agents"];
 var JSON_OUTPUT = {
   schema: { type: "json" },
   render: (_args, value) => [{ type: "text", text: JSON.stringify(value, null, 2) }]
@@ -1108,11 +1118,18 @@ function apply(ctx, config) {
   registerOne(ctx, overlayWriteTool(host));
   registerOne(ctx, spawnTool(host));
   registerOne(ctx, interruptTool(host));
-  ctx.skills.registerProvider(() => createSkillProvider());
-  const poteto = registerPotetoMode(ctx);
+  let invalidateSkillCatalog = () => {
+  };
+  const poteto = registerPotetoMode(ctx, { onChanged: () => {
+    invalidateSkillCatalog();
+  } });
+  ctx.skills.registerProvider((control) => {
+    invalidateSkillCatalog = control.invalidate;
+    return createSkillProvider(void 0, createPotetoSkillGate(ctx));
+  });
   ctx.inject(["webServer", "connection"], (webCtx) => {
     registerPstackSettingsRoutes(webCtx, host);
-    if (poteto !== void 0) registerPstackPotetoRoutes(webCtx, poteto);
+    registerPstackPotetoRoutes(webCtx, poteto);
   });
 }
 export {

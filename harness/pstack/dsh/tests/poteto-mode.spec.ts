@@ -5,9 +5,10 @@ import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Context } from '@deepseek-ai/cordis'
+import { PSTACK_TOOLS } from '../src/ids.ts'
 import {
-  COMMAND_NAME,
   NATIVE_DELEGATION_TOOLS,
+  createPotetoSkillGate,
   modePath,
   potetoSkillText,
   readModes,
@@ -23,7 +24,7 @@ interface FakeToolRuntime {
   restrict(filter: { deny?: readonly string[] }): () => void
 }
 
-function fakeTools(names: string[] = [...NATIVE_DELEGATION_TOOLS]): FakeToolRuntime {
+function fakeTools(names: string[] = [...PSTACK_TOOLS, ...NATIVE_DELEGATION_TOOLS]): FakeToolRuntime {
   const runtime: FakeToolRuntime = {
     names,
     denies: [],
@@ -39,9 +40,10 @@ function fakeTools(names: string[] = [...NATIVE_DELEGATION_TOOLS]): FakeToolRunt
   return runtime
 }
 
-function fakeAgent(id: string, origin: 'user' | 'subagent', services: Record<string, unknown>): Agent {
+function fakeAgent(id: string, origin: 'user' | 'subagent', services: Record<string, unknown>, parentSession?: string): Agent {
+  const header = { origin, ...parentSession === undefined ? {} : { parentSession } }
   return {
-    session: { id, header: { origin } },
+    session: { id, header },
     ctx: { get: (name: string) => services[name] },
   } as unknown as Agent
 }
@@ -51,29 +53,30 @@ interface Harness {
   agent: Agent
   tools: FakeToolRuntime
   sections: string[]
-  invoke(rawInput: string, agent?: Agent): Promise<{ kind: string; text?: string }>
+  agents: Agent[]
   emit(event: string, payload?: unknown): void
   preStep(payload: { agent: Agent; messages: Array<{ id: string; source: { kind: string } }> }, decision?: { kind: string; messages: unknown[] }): Promise<{ kind: string; messages: unknown[] }>
-  agents: Agent[]
 }
 
-function harness(services: Record<string, unknown> = {}, agent?: Agent): Harness {
-  const registered: Array<{ name: string; handler: (invocation: { agent: Agent; rawInput: string }) => Promise<{ kind: string; text?: string }> }> = []
-  const listeners = new Map<string, (payload?: unknown) => void>()
+function harness(primary?: Agent): Harness {
   const tools = fakeTools()
   const sections: string[] = []
+  const listeners = new Map<string, (payload?: unknown) => void>()
   const prompt = {
-    section: (section: { name: string; text: string }) => {
+    section: (section: { text: string }) => {
       sections.push(section.text)
       return () => {
-        sections.pop()
+        const index = sections.lastIndexOf(section.text)
+        if (index >= 0) sections.splice(index, 1)
       }
     },
   }
-  const primary = agent ?? fakeAgent('session-root', 'user', { tools, systemPrompt: prompt, ...services })
-  const agents = [primary]
+  const agent = primary ?? fakeAgent('session-root', 'user', { tools, systemPrompt: prompt })
+  const agents = [agent]
   const ctx = {
-    get: (name: string) => ({ commands: { register: (definition: never) => (registered.push(definition as never), () => {}) }, agents: { list: () => agents, get: (id: string) => agents.find(entry => String(entry.session.id) === id) }, ...services })[name as never],
+    get: (name: string) => name === 'agents'
+      ? { list: () => agents, get: (id: string) => agents.find(entry => String(entry.session.id) === id) }
+      : undefined,
     on: (event: string, handler: (payload?: unknown) => void) => {
       listeners.set(event, handler)
       return () => {}
@@ -81,15 +84,10 @@ function harness(services: Record<string, unknown> = {}, agent?: Agent): Harness
   } as unknown as Context
   return {
     ctx,
-    agent: primary,
+    agent,
     tools,
     sections,
     agents,
-    async invoke(rawInput, target) {
-      assert.equal(registered.length, 1)
-      assert.equal(registered[0].name, COMMAND_NAME)
-      return registered[0].handler({ agent: target ?? primary, rawInput })
-    },
     emit(event, payload) {
       listeners.get(event)?.(payload)
     },
@@ -98,6 +96,12 @@ function harness(services: Record<string, unknown> = {}, agent?: Agent): Harness
       return await handler(payload, async () => decision)
     },
   }
+}
+
+/** A delegate whose own services are separate, so its tool surface can be inspected. */
+function delegate(id: string, parentSession: string): { agent: Agent; tools: FakeToolRuntime } {
+  const tools = fakeTools()
+  return { agent: fakeAgent(id, 'subagent', { tools, systemPrompt: { section: () => () => {} } }, parentSession), tools }
 }
 
 const previousHome = process.env.DSH_HOME
@@ -116,72 +120,63 @@ describe('poteto switch', () => {
     await rm(home, { recursive: true, force: true })
   })
 
-  it('denies the native delegation tools and records the session when turned on', async () => {
+  it('withholds every bundled tool and the prompt while the switch is off', async () => {
+    await writeModes(new Set())
     const test = harness()
-    registerPotetoMode(test.ctx)
-    const result = await test.invoke('on')
-    assert.equal(result.kind, 'success')
-    assert.deepEqual(test.tools.denies, [[...NATIVE_DELEGATION_TOOLS]])
+    const api = registerPotetoMode(test.ctx)
+    assert.deepEqual(test.tools.denies, [[...PSTACK_TOOLS]])
+    assert.deepEqual(test.sections, [])
+    assert.deepEqual(api.read('session-root').denied.sort(), [...PSTACK_TOOLS].sort())
+    assert.equal(api.read('session-root').enabled, false)
+  })
+
+  it('swaps the withheld tools and the prompt section when the switch changes', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+
+    await api.setEnabled('session-root', true)
     assert.deepEqual([...readModes()], ['session-root'])
+    assert.deepEqual(test.tools.denies.at(-1), [...NATIVE_DELEGATION_TOOLS])
+    assert.deepEqual(test.sections, [potetoSkillText()])
+
+    await api.setEnabled('session-root', false)
+    assert.deepEqual([...readModes()], [])
+    assert.deepEqual(test.tools.denies.at(-1), [...PSTACK_TOOLS])
+    assert.deepEqual(test.sections, [])
+    assert.equal(test.tools.lifts, 2, 'each change lifts the previous restriction before applying the next')
     const stored = JSON.parse(await readFile(modePath(), 'utf8')) as { version: number; sessions: string[] }
     assert.equal(stored.version, 1)
-    assert.deepEqual(stored.sessions, ['session-root'])
-  })
-
-  it('adds the poteto-mode text to the session prompt', async () => {
-    const test = harness()
-    registerPotetoMode(test.ctx)
-    await test.invoke('on')
-    assert.equal(test.sections.length, 1)
-    assert.match(test.sections[0], /poteto-mode/)
-    assert.equal(test.sections[0], potetoSkillText())
-  })
-
-  it('lifts the restriction and forgets the session when turned off', async () => {
-    const test = harness()
-    registerPotetoMode(test.ctx)
-    await test.invoke('on')
-    const result = await test.invoke('off')
-    assert.equal(result.kind, 'success')
-    assert.equal(test.tools.lifts, 1)
-    assert.deepEqual(test.sections, [])
-    assert.deepEqual([...readModes()], [])
-  })
-
-  it('reports status without changing state', async () => {
-    const test = harness()
-    registerPotetoMode(test.ctx)
-    assert.match((await test.invoke('status')).text ?? '', /off/)
-    await test.invoke('on')
-    assert.match((await test.invoke('status')).text ?? '', /on/)
-    assert.deepEqual([...readModes()], ['session-root'])
+    assert.deepEqual(stored.sessions, [])
   })
 
   it('refuses to turn on inside a delegate', async () => {
     await writeModes(new Set())
-    const delegate = fakeAgent('session-child', 'subagent', { tools: fakeTools(), systemPrompt: { section: () => () => {} } })
-    const test = harness({}, delegate)
-    registerPotetoMode(test.ctx)
-    const result = await test.invoke('on')
-    assert.equal(result.kind, 'error')
+    const child = delegate('session-child', 'session-root')
+    const test = harness(child.agent)
+    const api = registerPotetoMode(test.ctx)
+    await assert.rejects(api.setEnabled('session-child', true), /not in a delegate/)
     assert.deepEqual([...readModes()], [])
   })
 
-  it('reapplies the restriction when a native tool registers late', async () => {
+  it('reapplies the restriction when another native tool registers late', async () => {
+    await writeModes(new Set(['session-root']))
     const test = harness()
-    registerPotetoMode(test.ctx)
-    await test.invoke('on')
+    test.tools.names = ['subagent']
+    const api = registerPotetoMode(test.ctx)
+    assert.deepEqual(test.tools.denies, [['subagent']])
+    await api.setEnabled('session-root', true)
+    assert.deepEqual(test.tools.denies.at(-1), ['subagent'])
+    test.tools.names.push('subagent_fork')
     test.emit('tools/change', {})
-    assert.equal(test.tools.denies.length, 1, 'already-denied tools are not restricted twice')
-    test.tools.names.push('subagent-fork-2')
-    test.emit('tools/change', {})
-    assert.equal(test.tools.denies.length, 1, 'unknown names are ignored')
+    assert.deepEqual(test.tools.denies.at(-1), ['subagent', 'subagent_fork'])
   })
 
   it('appends one reminder per new user turn while on', async () => {
+    await writeModes(new Set())
     const test = harness()
-    registerPotetoMode(test.ctx)
-    await test.invoke('on')
+    const api = registerPotetoMode(test.ctx)
+    await api.setEnabled('session-root', true)
     const userMessage = { id: 'm1', source: { kind: 'user' } }
     const first = await test.preStep({ agent: test.agent, messages: [userMessage] })
     assert.equal(first.messages.length, 1)
@@ -214,5 +209,72 @@ describe('poteto switch', () => {
     const { writeFile } = await import('node:fs/promises')
     await writeFile(file, '{not json')
     assert.deepEqual([...readModes()], [])
+    const test = harness()
+    registerPotetoMode(test.ctx)
+    assert.deepEqual(test.tools.denies.at(-1), [...PSTACK_TOOLS])
+  })
+
+  it('withholds its tools from delegates of a session that never opted in', async () => {
+    await writeModes(new Set())
+    const child = delegate('session-child', 'session-root')
+    const test = harness(child.agent)
+    registerPotetoMode(test.ctx)
+    assert.deepEqual(child.tools.denies, [[...PSTACK_TOOLS]])
+  })
+
+  it('lets delegates inherit an enabled parent without touching the native tools', async () => {
+    await writeModes(new Set(['session-root']))
+    const child = delegate('session-child', 'session-root')
+    const test = harness()
+    test.agents.push(child.agent)
+    registerPotetoMode(test.ctx)
+    assert.deepEqual(test.tools.denies.at(-1), [...NATIVE_DELEGATION_TOOLS])
+    assert.deepEqual(child.tools.denies, [])
+  })
+
+  it('withdraws the bundled skills from every surface while the switch is off', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    const gate = createPotetoSkillGate(test.ctx)
+    assert.equal(gate(test.agent), false)
+    await api.setEnabled('session-root', true)
+    assert.equal(gate(test.agent), true)
+    await api.setEnabled('session-root', false)
+    assert.equal(gate(test.agent), false)
+  })
+
+  it('keeps the authored policy for a lookup that carries no agent', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    const gate = createPotetoSkillGate(test.ctx)
+    assert.equal(gate(undefined), true)
+    assert.equal(gate({}), true)
+    assert.equal(gate({ session: { id: '' } }), true)
+  })
+
+  it('lets skill lookups inherit the switch down the delegation chain', async () => {
+    await writeModes(new Set(['session-root']))
+    const child = delegate('session-child', 'session-root')
+    const grandchild = delegate('session-grandchild', 'session-child')
+    const unrelated = delegate('session-other', 'nobody')
+    const test = harness(child.agent)
+    test.agents.push(grandchild.agent, unrelated.agent)
+    registerPotetoMode(test.ctx)
+    const gate = createPotetoSkillGate(test.ctx)
+    assert.equal(gate(child.agent), true)
+    assert.equal(gate(grandchild.agent), true)
+    assert.equal(gate(unrelated.agent), false)
+  })
+
+  it('notifies registrations after the switch changes', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    let changed = 0
+    const api = registerPotetoMode(test.ctx, { onChanged: () => { changed += 1 } })
+    await api.setEnabled('session-root', true)
+    assert.equal(changed, 1)
+    await api.setEnabled('session-root', false)
+    assert.equal(changed, 2)
   })
 })

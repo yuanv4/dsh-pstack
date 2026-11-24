@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -29,33 +29,50 @@ try {
   assert.match(platformMap, /^# pstack in DeepSeek Harness\s*$/m)
 
   process.env.DSH_HOME = join(temp, 'home')
-  const providers = []
-  const commands = []
-  const sections = []
-  const prompt = { section: section => { sections.push(section); return () => {} } }
-  const registeredTools = []
-  const tools = { get: () => undefined, restrict: () => () => {} }
-  const agent = { session: { id: 'smoke-session', header: { origin: 'user' } }, ctx: { get: name => ({ tools, systemPrompt: prompt })[name] } }
-  const services = {
-    commands: { register: command => { commands.push(command); return () => {} } },
-    agents: { list: () => [agent], get: id => id === agent.session.id ? agent : undefined },
-  }
-  const ctx = {
-    get: name => services[name],
-    tools: { register: tool => { registeredTools.push(tool) } },
-    skills: { registerProvider: factory => { providers.push(factory) } },
-    on: () => () => {},
-    inject: () => {},
-  }
+  const PSTACK_TOOLS = ['pstack_catalog', 'pstack_overlay_read', 'pstack_overlay_write', 'pstack_spawn', 'pstack_interrupt']
+  const NATIVE_DELEGATION_TOOLS = ['subagent', 'subagent_fork']
   const { apply } = await import(pathToFileURL(join(pkg, 'harness/pstack/dsh/dist/index.js')).href)
-  apply(ctx)
-  assert.equal(providers.length, 1)
-  const spawn = registeredTools.find(tool => tool.name === 'pstack_spawn')
-  const interrupt = registeredTools.find(tool => tool.name === 'pstack_interrupt')
+  /** One fake host boot: what the packaged apply registered and what it withheld. */
+  const boot = () => {
+    const providers = []
+    const sections = []
+    const registeredTools = []
+    const denied = []
+    const names = [...PSTACK_TOOLS, ...NATIVE_DELEGATION_TOOLS]
+    const prompt = { section: section => { sections.push(section); return () => {} } }
+    const tools = {
+      get: name => names.includes(name) ? { name } : undefined,
+      restrict: filter => { denied.push([...(filter.deny ?? [])]); return () => {} },
+    }
+    const agent = { session: { id: 'smoke-session', header: { origin: 'user' } }, ctx: { get: name => ({ tools, systemPrompt: prompt })[name] } }
+    const services = { agents: { list: () => [agent], get: id => id === agent.session.id ? agent : undefined } }
+    const ctx = {
+      get: name => services[name],
+      tools: { register: tool => { registeredTools.push(tool) } },
+      skills: { registerProvider: factory => { providers.push(factory({ invalidate() {} })) } },
+      on: () => () => {},
+      inject: () => {},
+    }
+    apply(ctx)
+    return { agent, providers, sections, registeredTools, denied }
+  }
+
+  const off = boot()
+  assert.equal(off.providers.length, 1)
+  assert.deepEqual(off.denied.at(-1), PSTACK_TOOLS, 'switch off must withhold every bundled tool')
+  const spawn = off.registeredTools.find(tool => tool.name === 'pstack_spawn')
+  const interrupt = off.registeredTools.find(tool => tool.name === 'pstack_interrupt')
   assert.ok(spawn && 'name' in spawn.parameters.properties, 'packaged pstack_spawn must accept name')
   assert.ok(interrupt && 'agent' in interrupt.parameters.properties, 'packaged pstack_interrupt must accept agent')
-  const provider = providers[0]()
+  const provider = off.providers[0]
   const skills = await provider.list()
+  const hidden = await provider.list({ scope: off.agent })
+  assert.equal(hidden.length, skills.length)
+  assert.equal(hidden.filter(skill => skill.invocation.modelInvocable || skill.invocation.userInvocable).length, 0, 'switch off must withdraw the bundle from both surfaces')
+  const hiddenLoad = await provider.get({ name: 'architect' }, { scope: off.agent })
+  assert.equal(hiddenLoad?.invocation.modelInvocable, false)
+  assert.equal(hiddenLoad?.invocation.userInvocable, false)
+  assert.ok(hiddenLoad?.content.trim())
   const skillsRoot = join(pkg, 'harness/pstack/dsh/generated/skills')
   const skillDirs = readdirSync(skillsRoot, { withFileTypes: true })
     .filter(entry => entry.isDirectory())
@@ -86,13 +103,18 @@ try {
   const poteto = await provider.get({ name: 'poteto-mode' })
   assert.ok(poteto?.content.trim())
   assert.match(poteto.content, /pstack_spawn/)
-  const command = commands.find(entry => entry.name === 'pstack-poteto-mode')
-  assert.ok(command, 'poteto command must register')
-  assert.equal((await command.handler({ agent, rawInput: 'on' })).kind, 'success')
-  assert.equal(sections.length, 1, 'enabling poteto must register a prompt section')
-  assert.equal(sections[0].name, 'pstack:poteto-workflow')
-  assert.equal(sections[0].text, poteto.content)
-  console.log(`Package smoke passed using packed apply: ${skills.length} skills, ${registeredTools.length} tools, and matching nonempty poteto prompt (fake host, not live DSH activation)`)
+  mkdirSync(join(temp, 'home'), { recursive: true })
+  writeFileSync(join(temp, 'home', 'pstack-poteto.json'), `${JSON.stringify({ version: 1, sessions: ['smoke-session'] })}\n`)
+  const on = boot()
+  assert.deepEqual(on.denied.at(-1), NATIVE_DELEGATION_TOOLS, 'switch on must withhold the native delegation tools')
+  assert.equal(on.sections.length, 1, 'enabling poteto must register a prompt section')
+  assert.equal(on.sections[0].name, 'pstack:poteto-workflow')
+  assert.equal(on.sections[0].text, poteto.content)
+  const shown = await on.providers[0].list({ scope: on.agent })
+  assert.equal(shown.find(skill => skill.name === 'architect')?.invocation.modelInvocable, true, 'switch on must return the bundled skills to a model catalog')
+  assert.equal(shown.find(skill => skill.name === 'poteto-mode')?.invocation.modelInvocable, false)
+  assert.equal(shown.find(skill => skill.name === 'poteto-mode')?.invocation.userInvocable, true)
+  console.log(`Package smoke passed using packed apply: ${skills.length} skills, ${off.registeredTools.length} tools, withheld tools on both switch states, and matching nonempty poteto prompt (fake host, not live DSH activation)`)
 } finally {
   if (previousHome === undefined) delete process.env.DSH_HOME
   else process.env.DSH_HOME = previousHome
