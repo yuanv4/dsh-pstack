@@ -20,7 +20,9 @@ interface FakeToolRuntime {
   names: string[]
   denies: string[][]
   lifts: number
-  get(name: string): unknown
+  get(name: string, scope?: unknown): unknown
+  onChange: () => void
+  active: Set<readonly string[]>
   restrict(filter: { deny?: readonly string[] }): () => void
 }
 
@@ -29,11 +31,19 @@ function fakeTools(names: string[] = [...PSTACK_TOOLS, ...NATIVE_DELEGATION_TOOL
     names,
     denies: [],
     lifts: 0,
-    get: (name: string) => (runtime.names.includes(name) ? { name } : undefined),
+    onChange: () => {},
+    active: new Set(),
+    get: (name: string, scope?: unknown) => (runtime.names.includes(name)
+      && (scope === undefined || ![...runtime.active].some(deny => deny.includes(name))) ? { name } : undefined),
     restrict: (filter: { deny?: readonly string[] }) => {
-      runtime.denies.push([...(filter.deny ?? [])])
+      const deny = [...(filter.deny ?? [])]
+      runtime.denies.push(deny)
+      runtime.active.add(deny)
+      runtime.onChange()
       return () => {
+        runtime.active.delete(deny)
         runtime.lifts += 1
+        runtime.onChange()
       }
     },
   }
@@ -71,6 +81,7 @@ function harness(primary?: Agent): Harness {
       }
     },
   }
+  tools.onChange = () => listeners.get('tools/change')?.()
   const agent = primary ?? fakeAgent('session-root', 'user', { tools, systemPrompt: prompt })
   const agents = [agent]
   const ctx = {
@@ -127,6 +138,38 @@ describe('poteto switch', () => {
     assert.deepEqual(test.sections, [])
     assert.deepEqual(api.read('session-root').denied.sort(), [...PSTACK_TOOLS].sort())
     assert.equal(api.read('session-root').enabled, false)
+  })
+
+  it('converges synchronous tool changes on startup, sync and agent creation', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    assert.equal(test.tools.get(PSTACK_TOOLS[0], test.agent), undefined)
+    test.emit('tools/change')
+    api.sync('session-root')
+    assert.equal(test.tools.active.size, 1)
+
+    const child = delegate('session-child', 'session-root')
+    child.tools.onChange = () => test.emit('tools/change')
+    test.agents.push(child.agent)
+    test.emit('agent/created', { agent: child.agent })
+    assert.equal(child.tools.get(PSTACK_TOOLS[0], child.agent), undefined)
+    assert.equal(child.tools.active.size, 1)
+
+    const synced = delegate('session-synced', 'session-root')
+    synced.tools.onChange = () => test.emit('tools/change')
+    test.agents.push(synced.agent)
+    api.sync('session-synced')
+    assert.equal(synced.tools.get(PSTACK_TOOLS[0], synced.agent), undefined)
+    assert.equal(synced.tools.active.size, 1)
+    await api.setEnabled('session-root', true)
+    assert.notEqual(test.tools.get(PSTACK_TOOLS[0], test.agent), undefined)
+    assert.equal(test.tools.get('subagent', test.agent), undefined)
+    assert.notEqual(child.tools.get(PSTACK_TOOLS[0], child.agent), undefined)
+    assert.equal(child.tools.active.size, 0)
+    await api.setEnabled('session-root', false)
+    assert.equal(test.tools.get(PSTACK_TOOLS[0], test.agent), undefined)
+    assert.equal(child.tools.get(PSTACK_TOOLS[0], child.agent), undefined)
   })
 
   it('swaps the withheld tools and the prompt section when the switch changes', async () => {

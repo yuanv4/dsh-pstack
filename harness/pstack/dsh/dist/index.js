@@ -765,7 +765,7 @@ function registerPotetoMode(ctx, hooks = {}) {
     applied.set(agent, record);
     const tools = agent.ctx.get("tools");
     if (tools !== void 0) {
-      const wanted = withheldTools(enabled, root).filter((name2) => tools.get(name2, agent) !== void 0);
+      const wanted = withheldTools(enabled, root).filter((name2) => tools.get(name2) !== void 0);
       if (!sameDenials(record.denied, wanted)) {
         for (const dispose of record.toolDisposers.splice(0)) {
           try {
@@ -802,8 +802,15 @@ function registerPotetoMode(ctx, hooks = {}) {
       record.section = void 0;
     }
   };
-  const reconcile = () => {
-    for (const agent of agentsRuntime()?.list() ?? []) applyTo(agent);
+  let reconciling = false;
+  const reconcile = (target) => {
+    if (reconciling) return;
+    reconciling = true;
+    try {
+      for (const agent of target === void 0 ? agentsRuntime()?.list() ?? [] : [target]) applyTo(agent);
+    } finally {
+      reconciling = false;
+    }
   };
   const stateOf = (sessionId) => {
     const agent = agentOf(sessionId);
@@ -814,7 +821,7 @@ function registerPotetoMode(ctx, hooks = {}) {
   };
   const sync = (sessionId) => {
     const agent = agentOf(sessionId);
-    if (agent !== void 0) applyTo(agent);
+    if (agent !== void 0) reconcile(agent);
   };
   const setEnabled = async (sessionId, enabled) => {
     const agent = agentOf(sessionId);
@@ -830,7 +837,7 @@ function registerPotetoMode(ctx, hooks = {}) {
   };
   const switchApi = { read: stateOf, setEnabled, sync };
   ctx.on("agent/created", (payload) => {
-    applyTo(payload.agent);
+    reconcile(payload.agent);
   });
   ctx.on("agent/disposed", (payload) => {
     applied.delete(payload.agent);

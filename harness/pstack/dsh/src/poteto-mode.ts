@@ -199,7 +199,9 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
 
     const tools = agent.ctx.get('tools') as ToolRuntime | undefined
     if (tools !== undefined) {
-      const wanted = withheldTools(enabled, root).filter(name => tools.get(name, agent) !== undefined)
+      // The unscoped lookup sees global registrations without this agent's mask.
+      // Scoped registrations cannot be denied by tools.restrict().
+      const wanted = withheldTools(enabled, root).filter(name => tools.get(name) !== undefined)
       if (!sameDenials(record.denied, wanted)) {
         for (const dispose of record.toolDisposers.splice(0)) {
           try {
@@ -243,9 +245,23 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
     }
   }
 
-  /** Converge every live agent; a toggle can change the state of its delegates too. */
-  const reconcile = (): void => {
-    for (const agent of agentsRuntime()?.list() ?? []) applyTo(agent)
+  /**
+   * Converge every live agent; a toggle can change the state of its delegates too.
+   *
+   * `applyTo` calls `tools.restrict()`/`dispose()`, both of which synchronously
+   * emit `tools/change`, whose listener is this same reconcile. The re-entry
+   * guard drops those nested passes; the outer pass finishes applying the
+   * requested agent or the complete live set before it returns.
+   */
+  let reconciling = false
+  const reconcile = (target?: Agent): void => {
+    if (reconciling) return
+    reconciling = true
+    try {
+      for (const agent of target === undefined ? agentsRuntime()?.list() ?? [] : [target]) applyTo(agent)
+    } finally {
+      reconciling = false
+    }
   }
 
   const stateOf = (sessionId: string): PotetoState => {
@@ -258,7 +274,7 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
 
   const sync = (sessionId: string): void => {
     const agent = agentOf(sessionId)
-    if (agent !== undefined) applyTo(agent)
+    if (agent !== undefined) reconcile(agent)
   }
 
   const setEnabled = async (sessionId: string, enabled: boolean): Promise<PotetoState> => {
@@ -277,7 +293,7 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
   const switchApi: PotetoSwitch = { read: stateOf, setEnabled, sync }
 
   ctx.on('agent/created', (payload: AgentCreatedPayload) => {
-    applyTo(payload.agent)
+    reconcile(payload.agent)
   })
 
   ctx.on('agent/disposed', (payload: AgentCreatedPayload) => {
