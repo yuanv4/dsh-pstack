@@ -689,20 +689,45 @@ function resolveCallModel(routes, modelArg, providerArg) {
 }
 
 // harness/pstack/dsh/src/poteto-mode.ts
-import { readFileSync } from "node:fs";
-import { dirname as dirname3, join as join5 } from "node:path";
+import { readFileSync as readFileSync2 } from "node:fs";
+import { dirname as dirname3, join as join6 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
+import { writeFileAtomic as writeFileAtomic3 } from "@deepseek-ai/dsh-atomic-write";
+
+// harness/pstack/dsh/src/poteto-default.ts
+import { readFileSync } from "node:fs";
+import { join as join5 } from "node:path";
 import { writeFileAtomic as writeFileAtomic2 } from "@deepseek-ai/dsh-atomic-write";
+var DEFAULT_SETTINGS_FILENAME = "pstack-settings.json";
+var DEFAULT_SETTINGS_VERSION = 1;
+function defaultPath(dshHome = resolveDshHome()) {
+  return join5(dshHome, DEFAULT_SETTINGS_FILENAME);
+}
+function readPotetoDefault(dshHome = resolveDshHome()) {
+  try {
+    const parsed = JSON.parse(readFileSync(defaultPath(dshHome), "utf8"));
+    return parsed.version === DEFAULT_SETTINGS_VERSION && parsed.potetoDefault === true;
+  } catch {
+    return false;
+  }
+}
+async function writePotetoDefault(potetoDefault, dshHome = resolveDshHome()) {
+  const body = { version: DEFAULT_SETTINGS_VERSION, potetoDefault };
+  await writeFileAtomic2(defaultPath(dshHome), `${JSON.stringify(body, null, 2)}
+`, { mode: 384, dirMode: 448 });
+}
+
+// harness/pstack/dsh/src/poteto-mode.ts
 var MODE_FILENAME = "pstack-poteto.json";
 var NATIVE_DELEGATION_TOOLS = ["subagent", "subagent_fork"];
 var SECTION_NAME = "pstack:poteto-workflow";
 var SECTION_ORDER = 10;
 function modePath(dshHome = resolveDshHome()) {
-  return join5(dshHome, MODE_FILENAME);
+  return join6(dshHome, MODE_FILENAME);
 }
 function readModes(dshHome = resolveDshHome()) {
   try {
-    const parsed = JSON.parse(readFileSync(modePath(dshHome), "utf8"));
+    const parsed = JSON.parse(readFileSync2(modePath(dshHome), "utf8"));
     if (parsed.version !== 1 || !Array.isArray(parsed.sessions)) return /* @__PURE__ */ new Set();
     return new Set(parsed.sessions.filter((id) => typeof id === "string"));
   } catch {
@@ -712,12 +737,12 @@ function readModes(dshHome = resolveDshHome()) {
 async function writeModes(sessions, dshHome = resolveDshHome()) {
   const body = `${JSON.stringify({ version: 1, sessions: [...sessions].sort() }, null, 2)}
 `;
-  await writeFileAtomic2(modePath(dshHome), body, { mode: 384, dirMode: 448 });
+  await writeFileAtomic3(modePath(dshHome), body, { mode: 384, dirMode: 448 });
 }
 function potetoSkillText() {
   try {
-    const file = join5(dirname3(fileURLToPath3(import.meta.url)), "..", "generated", "skills", "poteto-mode", "SKILL.md");
-    return parseSkillMarkdown(readFileSync(file, "utf8"), "poteto-mode")?.content ?? "";
+    const file = join6(dirname3(fileURLToPath3(import.meta.url)), "..", "generated", "skills", "poteto-mode", "SKILL.md");
+    return parseSkillMarkdown(readFileSync2(file, "utf8"), "poteto-mode")?.content ?? "";
   } catch {
     return "";
   }
@@ -758,6 +783,12 @@ function registerPotetoMode(ctx, hooks = {}) {
   const applied = /* @__PURE__ */ new Map();
   const agentsRuntime = () => ctx.get("agents");
   const agentOf = (sessionId) => agentsRuntime()?.get(sessionId);
+  let writes = Promise.resolve();
+  const persistModes = () => {
+    const next = writes.then(() => writeModes(modes), () => writeModes(modes));
+    writes = next.then(() => void 0, () => void 0);
+    return next;
+  };
   const applyTo = (agent) => {
     const enabled = isSessionEnabled(ctx, modes, sessionIdOf(agent));
     const root = isRootAgent(agent);
@@ -830,14 +861,23 @@ function registerPotetoMode(ctx, hooks = {}) {
     }
     if (enabled) modes.add(sessionId);
     else modes.delete(sessionId);
-    await writeModes(modes);
+    await persistModes();
     reconcile();
     hooks.onChanged?.();
     return stateOf(sessionId);
   };
   const switchApi = { read: stateOf, setEnabled, sync };
+  const applyDefault = (agent) => {
+    if (!isRootAgent(agent) || !readPotetoDefault()) return void 0;
+    const sessionId = sessionIdOf(agent);
+    if (modes.has(sessionId)) return void 0;
+    modes.add(sessionId);
+    return persistModes().then(() => void 0, () => void 0);
+  };
   ctx.on("agent/created", (payload) => {
+    const persisted = payload.source === "startup" ? applyDefault(payload.agent) : void 0;
     reconcile(payload.agent);
+    return persisted;
   });
   ctx.on("agent/disposed", (payload) => {
     applied.delete(payload.agent);
@@ -982,6 +1022,18 @@ function dropUnselectableRoles(overlay, live) {
 }
 
 // harness/pstack/dsh/src/settings-api.ts
+function isRecord3(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function overlayOf(raw) {
+  return isRecord3(raw) && "overlay" in raw ? raw.overlay : raw;
+}
+function defaultOf(raw) {
+  if (!isRecord3(raw) || !("potetoDefault" in raw)) return void 0;
+  const value = raw.potetoDefault;
+  if (typeof value !== "boolean") throw new Error("potetoDefault must be a boolean");
+  return value;
+}
 async function loadSettingsSnapshot(host) {
   const dshHome = host.dshHome ?? resolveDshHome(host.env);
   const catalog = await buildCatalog({ ...host, dshHome });
@@ -992,12 +1044,16 @@ async function loadSettingsSnapshot(host) {
     overlay,
     path: current.path,
     missing: current.missing,
-    droppedRoles
+    droppedRoles,
+    potetoDefault: readPotetoDefault(dshHome)
   };
 }
 async function saveSettingsOverlay(host, raw) {
   const dshHome = host.dshHome ?? resolveDshHome(host.env);
-  const overlay = typeof raw === "string" ? parseOverlay(raw) : parseOverlay(JSON.stringify(raw));
+  const overlayRaw = overlayOf(raw);
+  if (overlayRaw === void 0) throw new Error("overlay is required");
+  const overlay = typeof overlayRaw === "string" ? parseOverlay(overlayRaw) : parseOverlay(JSON.stringify(overlayRaw));
+  const requestedDefault = defaultOf(raw);
   const catalog = await buildCatalog({ ...host, dshHome });
   const errors = validateOverlayAgainstCatalog(overlay, catalog.routes);
   if (errors.length > 0) {
@@ -1007,13 +1063,14 @@ ${errors.join("\n")}`);
     throw error;
   }
   const path = await writeOverlay(overlay, dshHome);
-  return { path, overlay };
+  if (requestedDefault === void 0) {
+    return { path, overlay, potetoDefault: readPotetoDefault(dshHome) };
+  }
+  await writePotetoDefault(requestedDefault, dshHome);
+  return { path, overlay, potetoDefault: requestedDefault };
 }
 
 // harness/pstack/dsh/src/settings-routes.ts
-function isRecord3(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 async function handleSnapshot(host, req, res) {
   if (req.method !== "GET") {
     json(res, 405, { error: "method not allowed" });
@@ -1028,8 +1085,7 @@ async function handleSave(host, req, res) {
   }
   try {
     const body = await readJson(req);
-    const overlay = isRecord3(body) && "overlay" in body ? body.overlay : body;
-    const saved = await saveSettingsOverlay(host, overlay);
+    const saved = await saveSettingsOverlay(host, body);
     json(res, 200, saved);
   } catch (error) {
     const message = error instanceof Error ? error.message : "save failed";

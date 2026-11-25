@@ -7,6 +7,7 @@ import { loadSettingsSnapshot, saveSettingsOverlay } from '../src/settings-api.t
 import { draftToOverlay, overlayToDraft } from '../src/settings-draft.ts'
 import { parseOverlay } from '../src/overlay-model.ts'
 import { OVERLAY_FILENAME } from '../src/ids.ts'
+import { DEFAULT_SETTINGS_FILENAME } from '../src/poteto-default.ts'
 import { listenForCatalogChanges, type CatalogEventContext } from '../src/client/api.ts'
 
 function llmStub() {
@@ -61,6 +62,34 @@ describe('settings snapshot/save', () => {
     const snapshot = await loadSettingsSnapshot(host)
     assert.equal(snapshot.overlay.roles['feature, refactoring']?.routes[0]?.reasoningEffort, 'high')
     assert.equal(snapshot.missing, false)
+  })
+
+  it('saves the new-session default beside the overlay and keeps it on an older client save', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-settings-default-'))
+    const host = {
+      dshHome: home,
+      env: {},
+      llm: llmStub(),
+    }
+    assert.equal((await loadSettingsSnapshot(host)).potetoDefault, false)
+    const saved = await saveSettingsOverlay(host, {
+      overlay: { version: 1, roles: {} },
+      potetoDefault: true,
+    })
+    assert.equal(saved.potetoDefault, true)
+    assert.equal((await loadSettingsSnapshot(host)).potetoDefault, true)
+    assert.deepEqual(
+      JSON.parse(await readFile(join(home, DEFAULT_SETTINGS_FILENAME), 'utf8')),
+      { version: 1, potetoDefault: true },
+    )
+    // A client that predates the switch sends only the overlay and must not reset it.
+    const legacy = await saveSettingsOverlay(host, { version: 1, roles: {} })
+    assert.equal(legacy.potetoDefault, true)
+    assert.equal((await loadSettingsSnapshot(host)).potetoDefault, true)
+    await assert.rejects(
+      () => saveSettingsOverlay(host, { overlay: { version: 1, roles: {} }, potetoDefault: 'yes' }),
+      /potetoDefault must be a boolean/,
+    )
   })
 
   it('keeps user effort and stale legacy critics on disk through Settings load and draft save', async () => {

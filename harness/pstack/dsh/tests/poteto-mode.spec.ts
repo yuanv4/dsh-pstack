@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Context } from '@deepseek-ai/cordis'
 import { PSTACK_TOOLS } from '../src/ids.ts'
+import { writePotetoDefault } from '../src/poteto-default.ts'
 import {
   NATIVE_DELEGATION_TOOLS,
   createPotetoSkillGate,
@@ -64,7 +65,7 @@ interface Harness {
   tools: FakeToolRuntime
   sections: string[]
   agents: Agent[]
-  emit(event: string, payload?: unknown): void
+  emit(event: string, payload?: unknown): unknown
   hasListener(event: string): boolean
 }
 
@@ -100,7 +101,7 @@ function harness(primary?: Agent): Harness {
     sections,
     agents,
     emit(event, payload) {
-      listeners.get(event)?.(payload)
+      return listeners.get(event)?.(payload)
     },
     hasListener(event) {
       return listeners.has(event)
@@ -228,10 +229,100 @@ describe('poteto switch', () => {
 
   it('restores the switch for a live session on startup', async () => {
     await writeModes(new Set(['session-root']))
+    await writePotetoDefault(false)
     const test = harness()
     registerPotetoMode(test.ctx)
     assert.deepEqual(test.tools.denies, [[...NATIVE_DELEGATION_TOOLS]])
     assert.equal(test.sections.length, 1)
+  })
+
+  it('starts a brand-new session in the saved default', async () => {
+    await writeModes(new Set())
+    await writePotetoDefault(true)
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    assert.equal(api.read('session-root').enabled, false, 'the default does not change a session that already exists')
+    await test.emit('agent/created', { agent: test.agent, source: 'startup' })
+    assert.equal(api.read('session-root').enabled, true)
+    assert.deepEqual([...readModes()], ['session-root'])
+    assert.deepEqual(test.tools.denies.at(-1), [...NATIVE_DELEGATION_TOOLS])
+    assert.deepEqual(test.sections, [potetoSkillText()])
+    assert.notEqual(test.tools.get(PSTACK_TOOLS[0], test.agent), undefined)
+  })
+
+  it('keeps a resumed, cleared, or compacted session on its own switch', async () => {
+    await writePotetoDefault(true)
+    for (const source of ['resume', 'clear', 'compact'] as const) {
+      await writeModes(new Set())
+      const test = harness()
+      const api = registerPotetoMode(test.ctx)
+      await test.emit('agent/created', { agent: test.agent, source })
+      assert.equal(api.read('session-root').enabled, false, `${source} is not a new session`)
+      assert.deepEqual([...readModes()], [])
+      assert.deepEqual(test.tools.denies.at(-1), [...PSTACK_TOOLS])
+    }
+    await writePotetoDefault(false)
+  })
+
+  it('leaves a brand-new session off when the default is off', async () => {
+    await writeModes(new Set())
+    await writePotetoDefault(false)
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    await test.emit('agent/created', { agent: test.agent, source: 'startup' })
+    assert.equal(api.read('session-root').enabled, false)
+    assert.deepEqual([...readModes()], [])
+  })
+
+  it('never turns a delegate on from the default', async () => {
+    await writeModes(new Set())
+    await writePotetoDefault(true)
+    const child = delegate('session-child', 'session-root')
+    const test = harness(child.agent)
+    registerPotetoMode(test.ctx)
+    await test.emit('agent/created', { agent: child.agent, source: 'startup' })
+    assert.deepEqual([...readModes()], [])
+    assert.deepEqual(child.tools.denies, [[...PSTACK_TOOLS]])
+    await writePotetoDefault(false)
+  })
+
+  it('turns the workflow off again in a session the default started', async () => {
+    await writeModes(new Set())
+    await writePotetoDefault(true)
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    await test.emit('agent/created', { agent: test.agent, source: 'startup' })
+    await api.setEnabled('session-root', false)
+    assert.deepEqual([...readModes()], [])
+    assert.deepEqual(test.tools.denies.at(-1), [...PSTACK_TOOLS])
+    await writePotetoDefault(false)
+  })
+
+  it('keeps both ids when two switches are persisted at once', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    await Promise.all([api.setEnabled('session-a', true), api.setEnabled('session-b', true)])
+    assert.deepEqual([...readModes()], ['session-a', 'session-b'])
+  })
+
+  it('keeps session creation working when the default cannot be persisted', async () => {
+    await writePotetoDefault(true)
+    // A directory where the mode file goes makes every write fail, while the
+    // default file stays readable.
+    await rm(modePath(), { recursive: true, force: true })
+    await mkdir(modePath())
+    try {
+      const test = harness()
+      const api = registerPotetoMode(test.ctx)
+      await test.emit('agent/created', { agent: test.agent, source: 'startup' })
+      assert.equal(api.read('session-root').enabled, true, 'the session still starts switched on')
+      assert.deepEqual(test.tools.denies.at(-1), [...NATIVE_DELEGATION_TOOLS])
+      assert.deepEqual([...readModes()], [], 'nothing reached the disk')
+    } finally {
+      await rm(modePath(), { recursive: true, force: true })
+      await writePotetoDefault(false)
+    }
   })
 
   it('treats a malformed mode file as off', async () => {

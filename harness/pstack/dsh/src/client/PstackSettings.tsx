@@ -1,6 +1,13 @@
-/** pstack role editor, rendered inside the plugin detail dialog. */
+/**
+ * pstack role editor. DSH renders a bundle's configuration in the
+ * `plugins.bundle.config` slot of its Plugins page, between the bundle's
+ * description and its component rows, with `view: 'page'` and its own save.
+ */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Button, IconPlusOutlineRegular, IconTrashOutlineRegular, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type { LiveRoute } from '../catalog-types.ts'
 import type { Overlay, OverlayRoute } from '../overlay-model.ts'
 import { routeKey } from '../overlay-model.ts'
@@ -24,10 +31,8 @@ export interface PstackSettingsInjected {
   subscribeCatalogChanges: (listener: () => void) => () => void
 }
 
-export type PstackSettingsProps = Partial<PstackSettingsInjected> & {
-  /** False while the host dialog is closed: keep the draft, stop listening and polling. */
-  active?: boolean
-}
+/** Owner props of the bundle's configuration page; it only asks for `page`. */
+export type PstackSettingsProps = PluginConfigViewProps & PstackSettingsInjected
 
 type GroupKey = 'groupDelegates' | 'groupJudgment' | 'groupPanels'
 
@@ -51,115 +56,104 @@ const DESCRIPTION_KEY = {
   'interrogate reviewers': 'descInterrogateReviewers',
 } as const satisfies Record<PstackRole, PstackSettingsKey>
 
+/**
+ * Form metrics follow the Host's own settings surfaces: the plugin page's
+ * 14/20 section heading with its 12/18 count, `.input` (32px, hairline `l4`,
+ * 12px radius) for every field, `Tag` for counts, `StateDot` for save state, the
+ * model editor's filled `bg-module-platform` surface for a nested multi-route
+ * editor, and a footer row that ends the form in place of a pinned bar.
+ */
 const SETTINGS_CSS = `
-.pstack-page { display:flex; flex-direction:column; flex:1 0 auto; color:var(--dsw-alias-label-primary); }
-.pstack-page .pstack-button {
-  flex:none; min-height:32px; padding:0 12px; border:1px solid transparent; border-radius:8px;
-  background:transparent; color:var(--dsw-alias-label-primary); font:inherit; font-size:13px; cursor:pointer;
-  white-space:nowrap;
-}
-.pstack-page .pstack-button--primary { background:var(--dsw-alias-button-primary-fill); color:var(--dsw-alias-label-primary-inverted); }
-.pstack-page .pstack-button--outline { border-color:var(--dsw-alias-border-l2); }
-.pstack-page .pstack-button--ghost { color:var(--dsw-alias-label-secondary); }
-.pstack-page .pstack-button:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:2px; }
-.pstack-page .pstack-button:disabled { cursor:default; opacity:.45; }
-@media (hover:hover) {
-  .pstack-page .pstack-button--ghost:not(:disabled):hover,
-  .pstack-page .pstack-button--outline:not(:disabled):hover { background:var(--dsw-alias-interactive-bg-hover); }
-  .pstack-page .pstack-button--primary:not(:disabled):hover { background:var(--dsw-alias-button-primary-hover); }
-}
-.pstack-page .pstack-button:not(:disabled):active { background:var(--dsw-alias-interactive-bg-active); }
+.pstack-page { display:flex; flex-direction:column; gap:16px; width:100%; max-width:760px; color:var(--dsw-alias-label-primary); }
 
-.pstack-page .pstack-tools {
-  position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
-  padding:10px 16px; background:var(--dsw-alias-bg-layer-2);
-  border-bottom:0.5px solid var(--dsw-alias-border-l2);
-}
-.pstack-page .pstack-search {
-  flex:1 1 180px; min-width:120px; height:32px; padding:0 10px; border:1px solid var(--dsw-alias-border-l2);
-  border-radius:8px; background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary);
-  font:inherit; font-size:13px;
-}
-.pstack-page .pstack-search::placeholder { color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-search:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:-1px; }
+.pstack-head { display:flex; flex-direction:column; gap:4px; }
+.pstack-section-head { display:flex; align-items:baseline; gap:10px; }
+.pstack-section-title { margin:0; font-size:14px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-section-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-secondary); font-variant-numeric:tabular-nums; }
+.pstack-intro { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 
-.pstack-page .pstack-list { display:flex; flex-direction:column; flex:1 0 auto; gap:18px; padding:16px; }
-.pstack-page .pstack-group { display:flex; flex-direction:column; gap:6px; }
-.pstack-page .pstack-group-head { display:flex; align-items:baseline; gap:8px; padding:0 2px; }
-.pstack-page .pstack-group-title { margin:0; font-size:12px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-secondary); }
-.pstack-page .pstack-group-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+.pstack-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.pstack-search { position:relative; display:flex; flex:1 1 180px; align-items:center; min-width:120px; color:var(--dsw-alias-label-tertiary); }
+.pstack-search > svg { position:absolute; left:10px; pointer-events:none; }
+.pstack-search input {
+  box-sizing:border-box; width:100%; height:32px; padding:0 10px 0 32px;
+  border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md);
+  background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-primary);
+  font:inherit; font-size:13px; line-height:22px;
+}
+.pstack-search input::placeholder { color:var(--dsw-alias-label-dimmed); }
+.pstack-search input:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
 
-.pstack-page .pstack-card {
-  border:0.5px solid var(--dsw-alias-settings-card-stroke); border-radius:var(--dsw-radius-md, 10px);
+.pstack-select {
+  box-sizing:border-box; width:100%; height:32px; min-width:0; padding:0 8px;
+  border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md);
+  background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-primary);
+  font:inherit; font-size:13px; line-height:22px;
+}
+.pstack-select:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
+.pstack-select:disabled { opacity:.6; cursor:default; }
+.pstack-select--auto { flex:0 1 200px; width:auto; max-width:200px; }
+
+.pstack-defaults { display:flex; flex-direction:column; gap:8px; }
+.pstack-default-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.pstack-default-text { display:flex; flex:1 1 220px; flex-direction:column; gap:2px; min-width:0; }
+.pstack-default-label { font-size:13px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-default-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+
+.pstack-group { display:flex; flex-direction:column; gap:8px; }
+.pstack-group-head { display:flex; align-items:baseline; gap:8px; }
+.pstack-group-title { margin:0; font-size:14px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-group-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); font-variant-numeric:tabular-nums; }
+.pstack-hint { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+
+.pstack-card {
+  border:0.5px solid var(--dsw-alias-settings-card-stroke); border-radius:var(--dsw-radius-xl);
   background:var(--dsw-alias-settings-card-fill); overflow:hidden;
 }
-.pstack-page .pstack-card > * + * { border-top:0.5px solid var(--dsw-alias-border-l1); }
+.pstack-card > * + * { border-top:0.5px solid var(--dsw-alias-border-l2); }
 
-.pstack-page .pstack-row {
-  display:grid; grid-template-columns:minmax(150px,1fr) minmax(170px,1.35fr) minmax(104px,132px);
-  gap:10px; align-items:center; padding:7px 12px;
+.pstack-row {
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,290px) minmax(96px,104px);
+  gap:10px; align-items:center; padding:8px 14px;
 }
-.pstack-page .pstack-id { display:flex; flex-direction:column; gap:1px; min-width:0; }
-.pstack-page .pstack-role {
-  font-size:13px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-primary);
-  font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+.pstack-id { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.pstack-id-line { display:flex; align-items:baseline; gap:8px; min-width:0; }
+.pstack-role {
+  min-width:0; font-family:var(--ds-font-family-code); font-size:13px; line-height:18px; font-weight:500;
+  color:var(--dsw-alias-label-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.pstack-page .pstack-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pstack-page .pstack-select {
-  width:100%; height:32px; min-width:0; padding:0 8px; border:1px solid var(--dsw-alias-border-l2); border-radius:8px;
-  background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary); font:inherit; font-size:13px;
-}
-.pstack-page .pstack-select:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:-1px; }
-.pstack-page .pstack-select:disabled { color:var(--dsw-alias-label-tertiary); cursor:default; }
-.pstack-page .pstack-spacer { min-height:1px; }
-.pstack-page .pstack-inline { display:flex; gap:6px; align-items:center; min-width:0; }
+.pstack-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pstack-spacer { min-height:1px; }
+.pstack-inline { display:flex; align-items:center; gap:8px; min-width:0; }
 
-.pstack-page .pstack-panel-head {
-  display:grid; grid-template-columns:minmax(150px,1fr) auto auto; gap:10px; align-items:center; padding:7px 12px;
+.pstack-panel-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 14px; }
+.pstack-panel-body { display:flex; flex-direction:column; gap:8px; margin:0 14px 12px; padding:12px; border-radius:var(--dsw-radius-lg); background:var(--dsw-alias-bg-module-platform); }
+.pstack-panel-body > .pstack-add { align-self:flex-start; }
+.pstack-route-row { display:grid; grid-template-columns:16px minmax(0,1fr) minmax(96px,104px) auto; gap:8px; align-items:center; }
+.pstack-index { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); text-align:right; font-variant-numeric:tabular-nums; }
+/* Later than the shared Button rules and more specific, so the icon-only row action keeps its 28px box. */
+.pstack-remove.pstack-remove { width:28px; min-width:28px; padding:0; color:var(--dsw-alias-label-tertiary); }
+@media (hover:hover) {
+  .pstack-remove.pstack-remove:hover:not(:disabled) { background:var(--dsw-alias-interactive-bg-hover-danger); color:var(--dsw-alias-state-error-primary); }
 }
-.pstack-page .pstack-panel-head-main { display:flex; align-items:center; gap:8px; min-width:0; }
-.pstack-page .pstack-badge {
-  flex:none; padding:1px 7px; border-radius:999px; font-size:12px; line-height:18px;
-  color:var(--dsw-alias-label-secondary); background:var(--dsw-alias-bg-layer-3);
-}
-.pstack-page .pstack-panel-body { display:flex; flex-direction:column; gap:6px; padding:8px 12px 10px 24px; background:var(--dsw-alias-bg-layer-1); }
-.pstack-page .pstack-route-row { display:grid; grid-template-columns:18px minmax(120px,1fr) minmax(96px,124px) auto; gap:8px; align-items:center; }
-.pstack-page .pstack-index { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); text-align:right; }
-.pstack-page .pstack-remove {
-  flex:none; width:28px; height:28px; padding:0; border:1px solid transparent; border-radius:var(--dsw-radius-sm, 6px);
-  background:transparent; color:var(--dsw-alias-label-tertiary); font:inherit; font-size:15px; line-height:1; cursor:pointer;
-}
-@media (hover:hover) { .pstack-page .pstack-remove:hover { background:var(--dsw-alias-interactive-bg-hover); color:var(--dsw-alias-label-primary); } }
-.pstack-page .pstack-remove:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:1px; }
 
-.pstack-page .pstack-foot {
-  position:sticky; bottom:0; z-index:2; margin-top:auto;
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-  justify-content:space-between; padding:10px 16px;
-  background:var(--dsw-alias-bg-layer-2); border-top:0.5px solid var(--dsw-alias-border-l2);
-}
-.pstack-page .pstack-status { display:flex; align-items:center; gap:8px; min-width:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--dsw-alias-state-idle-primary); }
-.pstack-page .pstack-dot--dirty { background:var(--dsw-alias-state-warn-primary); }
-.pstack-page .pstack-status-text { color:var(--dsw-alias-label-secondary); }
-.pstack-page .pstack-path { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
-.pstack-page .pstack-foot-error { flex:1 1 100%; margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
-.pstack-page .pstack-foot-ok { flex:1 1 100%; margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-state-success-primary); }
-.pstack-page .pstack-select--auto { width:auto; }
-.pstack-page .pstack-hint { margin:0; padding:0 2px; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-foot-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
+.pstack-foot { display:flex; flex-direction:column; gap:8px; padding-top:16px; }
+.pstack-foot-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.pstack-status { display:flex; align-items:center; gap:6px; min-width:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+.pstack-status-text { color:var(--dsw-alias-label-secondary); }
+.pstack-foot-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
 
-.pstack-page .pstack-note { margin:0; padding:16px; font-size:13px; line-height:20px; color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-warn { margin:0; padding:8px 16px; font-size:12px; line-height:18px; color:var(--dsw-alias-state-warn-label); }
-.pstack-page .pstack-error { margin:0; padding:8px 16px; font-size:12px; line-height:18px; color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
+.pstack-note { margin:0; font-size:13px; line-height:20px; color:var(--dsw-alias-label-tertiary); }
+.pstack-banner { margin:0; border-radius:var(--dsw-radius-lg); padding:8px 10px; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
+.pstack-banner--warn { background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, transparent); color:var(--dsw-alias-state-warn-label); }
+.pstack-banner--ok { background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent); color:var(--dsw-alias-state-success-primary); }
+.pstack-banner--error { background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
 
-@media (width <= 720px) {
-  .pstack-page .pstack-row { grid-template-columns:1fr; }
-  .pstack-page .pstack-panel-head { grid-template-columns:1fr; }
-  .pstack-page .pstack-route-row { grid-template-columns:minmax(0,1fr) auto auto; }
-  .pstack-page .pstack-index { display:none; }
-  .pstack-page .pstack-path { display:none; }
+@media (width <= 640px) {
+  .pstack-row { grid-template-columns:1fr; }
+  .pstack-panel-head { grid-template-columns:1fr; }
+  .pstack-route-row { grid-template-columns:minmax(0,1fr) auto auto; }
+  .pstack-index { display:none; }
 }
 `
 
@@ -173,10 +167,46 @@ function firstRoute(routes: readonly LiveRoute[]): OverlayRoute | undefined {
   return { provider: route.provider, model: route.model }
 }
 
-function RoleId({ role, descId, t }: { role: PstackRole; descId: string; t: PstackSettingsInjected['t'] }) {
+/**
+ * DOM id for one role's controls. Role names carry a space and a comma, and an
+ * id with either breaks the `aria-describedby` token list, so the name is slugged.
+ */
+function roleId(role: PstackRole): string {
+  return role.replace(/[^a-z0-9]+/giu, '-').replace(/^-|-$/gu, '')
+}
+
+/**
+ * Magnifier for the search field. Drawn here rather than imported: the shared
+ * primitives module exports the glyph, but no Host bundle this plugin already
+ * depends on is guaranteed to ship that export.
+ */
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <circle cx="7" cy="7" r="4.25" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M10.2 10.2 13.5 13.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function RoleId({
+  role,
+  descId,
+  t,
+  trailing,
+}: {
+  role: PstackRole
+  descId: string
+  t: PstackSettingsInjected['t']
+  /** Badge shown beside the role name; a panel role's route count or inherit state. */
+  trailing?: ReactNode
+}) {
   return (
     <div className="pstack-id">
-      <code className="pstack-role">{role}</code>
+      <span className="pstack-id-line">
+        <code className="pstack-role">{role}</code>
+        {trailing}
+      </span>
       <span className="pstack-desc" id={descId}>{t(DESCRIPTION_KEY[role])}</span>
     </div>
   )
@@ -274,12 +304,12 @@ function RouteSelect({
   )
 }
 
-export function PstackSettings({ t, subscribeCatalogChanges, active = true }: PstackSettingsProps) {
-  if (t === undefined) throw new Error('pstack settings requires its translation function')
+export function PstackSettings({ t, subscribeCatalogChanges }: PstackSettingsProps) {
   const [drafts, setDrafts] = useState<RoleDraft[] | undefined>(undefined)
   const [saved, setSaved] = useState<Overlay | undefined>(undefined)
+  const [savedDefault, setSavedDefault] = useState<boolean | undefined>(undefined)
+  const [draftDefault, setDraftDefault] = useState<boolean | undefined>(undefined)
   const [live, setLive] = useState<readonly LiveRoute[]>([])
-  const [path, setPath] = useState<string>('')
   const [dropped, setDropped] = useState<string[]>([])
   const [error, setError] = useState<string | undefined>(undefined)
   const [catalogError, setCatalogError] = useState<string | undefined>(undefined)
@@ -299,12 +329,13 @@ export function PstackSettings({ t, subscribeCatalogChanges, active = true }: Ps
       const snapshot = await loadSettingsSnapshot(request.signal)
       if (request.signal.aborted) return
       setLive(snapshot.catalog.routes)
-      setPath(snapshot.path)
       // Login and model notifications must never replace the user's in-progress
       // role choices (or the baseline that decides whether Save is enabled).
       if (!initialized.current) {
         setSaved(snapshot.overlay)
         setDrafts(overlayToDraft(snapshot.overlay))
+        setSavedDefault(snapshot.potetoDefault)
+        setDraftDefault(snapshot.potetoDefault)
         setDropped(snapshot.droppedRoles)
         initialized.current = true
       }
@@ -319,24 +350,26 @@ export function PstackSettings({ t, subscribeCatalogChanges, active = true }: Ps
     }
   }, [t])
 
+  // The page mounts this form while the bundle's page is open, so leaving it
+  // drops the staged edits and stops the catalog subscriptions.
   useEffect(() => {
-    if (!active) return
     const reload = () => { void refresh() }
     const visible = () => { if (document.visibilityState === 'visible') reload() }
-    const stop = subscribeCatalogChanges?.(reload)
+    const stop = subscribeCatalogChanges(reload)
     window.addEventListener('focus', reload)
     document.addEventListener('visibilitychange', visible)
     reload()
     return () => {
-      stop?.()
+      stop()
       window.removeEventListener('focus', reload)
       document.removeEventListener('visibilitychange', visible)
       catalogRequest.current?.abort()
     }
-  }, [refresh, subscribeCatalogChanges, active])
+  }, [refresh, subscribeCatalogChanges])
 
   const currentOverlay = useMemo(() => drafts === undefined ? undefined : draftToOverlay(drafts), [drafts])
-  const dirty = saved !== undefined && currentOverlay !== undefined && !overlaysEqual(saved, currentOverlay)
+  const dirty = (saved !== undefined && currentOverlay !== undefined && !overlaysEqual(saved, currentOverlay))
+    || (savedDefault !== undefined && draftDefault !== undefined && savedDefault !== draftDefault)
   const empty = live.length === 0
   const configured = drafts === undefined
     ? 0
@@ -372,14 +405,16 @@ export function PstackSettings({ t, subscribeCatalogChanges, active = true }: Ps
   }
 
   const save = async (): Promise<void> => {
-    if (currentOverlay === undefined) return
+    if (currentOverlay === undefined || draftDefault === undefined) return
     setBusy(true)
     setNotice(undefined)
     setError(undefined)
     try {
-      const result = await saveSettingsOverlay(currentOverlay)
+      const result = await saveSettingsOverlay(currentOverlay, draftDefault)
       setSaved(result.overlay)
       setDrafts(overlayToDraft(result.overlay))
+      setSavedDefault(result.potetoDefault)
+      setDraftDefault(result.potetoDefault)
       setDropped([])
       setError(undefined)
       setNotice(t('saved'))
@@ -394,6 +429,7 @@ export function PstackSettings({ t, subscribeCatalogChanges, active = true }: Ps
   const discard = (): void => {
     if (saved === undefined) return
     setDrafts(overlayToDraft(saved))
+    setDraftDefault(savedDefault)
     setDropped([])
     setNotice(undefined)
     setError(undefined)
@@ -414,34 +450,43 @@ export function PstackSettings({ t, subscribeCatalogChanges, active = true }: Ps
     <section
       className="pstack-page"
       aria-busy={busy || refreshing}
-      onFocusCapture={event => { if (event.target instanceof HTMLSelectElement) void refresh() }}
-      onPointerDownCapture={event => { if (event.target instanceof HTMLSelectElement) void refresh() }}
     >
       <style>{SETTINGS_CSS}</style>
+
+      <div className="pstack-head">
+        <div className="pstack-section-head">
+          <h3 className="pstack-section-title">{t('title')}</h3>
+          {drafts === undefined
+            ? null
+            : <span className="pstack-section-count">{t('configured', { configured, total })}</span>}
+        </div>
+        <p className="pstack-intro">{t('intro')}</p>
+      </div>
 
       {drafts === undefined
         ? catalogError === undefined
           ? <p className="pstack-note" role="status" aria-busy="true">{t('loading')}</p>
           : (
               <>
-                <p className="pstack-error" role="alert">{catalogError}</p>
-                <p className="pstack-note">
-                  <button type="button" className="pstack-button pstack-button--outline" onClick={() => { void refresh() }}>{t('reload')}</button>
-                </p>
+                <p className="pstack-banner pstack-banner--error" role="alert">{catalogError}</p>
+                <div className="pstack-inline">
+                  <Button variant="outline" size="sm" onClick={() => { void refresh() }}>{t('reload')}</Button>
+                </div>
               </>
             )
         : (
             <>
               <div className="pstack-tools">
-                <input
-                  autoFocus
-                  type="search"
-                  className="pstack-search"
-                  placeholder={t('search')}
-                  aria-label={t('search')}
-                  value={query}
-                  onChange={event => setQuery(event.target.value)}
-                />
+                <span className="pstack-search">
+                  <SearchIcon />
+                  <input
+                    type="search"
+                    placeholder={t('search')}
+                    aria-label={t('search')}
+                    value={query}
+                    onChange={event => setQuery(event.target.value)}
+                  />
+                </span>
                 {!empty
                   ? (
                       <select
@@ -474,238 +519,232 @@ export function PstackSettings({ t, subscribeCatalogChanges, active = true }: Ps
                       </select>
                     )
                   : null}
-                <button
-                  type="button"
-                  className="pstack-button pstack-button--outline"
+                <Button
+                  variant="outline"
+                  size="sm"
                   title={t('catalogUpdates')}
-                  aria-busy={refreshing}
                   disabled={busy || refreshing}
                   onClick={() => { void refresh() }}
                 >
                   {refreshing ? t('reloading') : t('reload')}
-                </button>
+                </Button>
               </div>
 
-              {catalogError !== undefined ? <p className="pstack-error" role="alert">{catalogError}</p> : null}
-              {empty ? <p className="pstack-warn">{t('emptyCatalog')}</p> : null}
-              {dropped.length > 0 ? <p className="pstack-warn">{t('dropped')}</p> : null}
+              <section className="pstack-defaults" aria-label={t('defaultsTitle')}>
+                <h3 className="pstack-group-title">{t('defaultsTitle')}</h3>
+                <div className="pstack-default-row">
+                  <div className="pstack-default-text">
+                    <span className="pstack-default-label">{t('potetoDefaultLabel')}</span>
+                    <span className="pstack-default-desc">{t('potetoDefaultDescription')}</span>
+                  </div>
+                  <Switch
+                    checked={draftDefault ?? false}
+                    disabled={busy || draftDefault === undefined}
+                    label={t('potetoDefaultLabel')}
+                    onChange={next => {
+                      setDraftDefault(next)
+                      setNotice(undefined)
+                      setError(undefined)
+                    }}
+                  />
+                </div>
+              </section>
 
-              <div className="pstack-list">
-                {GROUPS.map(group => {
-                  const roles = group.roles.filter(matches)
-                  if (roles.length === 0) return null
-                  return (
-                    <section key={group.id} className="pstack-group" aria-label={t(group.id)}>
-                      <div className="pstack-group-head">
-                        <h3 className="pstack-group-title">{t(group.id)}</h3>
-                        <span className="pstack-group-count">{roles.length}</span>
-                      </div>
-                      {group.id === 'groupPanels' ? <p className="pstack-hint">{t('panelHint')}</p> : null}
-                      <div className="pstack-card">
-                        {roles.map(role => {
-                          const draft = drafts.find(entry => entry.role === role)
-                          if (draft === undefined) return null
-                          if (!draft.panel) {
-                            const route = draft.routes[0]
-                            return (
-                              <div key={role} className="pstack-row">
-                                <RoleId role={role} descId={`pstack-desc-${role}`} t={t} />
-                                <RouteSelect
-                                  id={`pstack-role-${role}`}
-                                  describedBy={`pstack-desc-${role}`}
-                                  label={`${role} · ${t('route')}`}
-                                  value={routeSelectValue(draft)}
-                                  live={live}
-                                  t={t}
-                                  disabled={busy}
-                                  onChange={value => { setScalarChoice(role, value) }}
-                                />
-                                {route !== undefined && !draft.inherit
-                                  ? (
-                                      <EffortSelect
-                                        id={`pstack-effort-${role}`}
-                                        label={`${role} · ${t('effort')}`}
-                                        describedBy={`pstack-desc-${role}`}
-                                        route={route}
-                                        live={live}
-                                        t={t}
-                                        disabled={busy}
-                                        onChange={next => { patchRole(role, current => ({ ...current, routes: [next] })) }}
-                                      />
-                                    )
-                                  : <div className="pstack-spacer" />}
-                              </div>
-                            )
-                          }
-                          const rows = draft.inherit ? [] : draft.routes
+              {catalogError !== undefined
+                ? <p className="pstack-banner pstack-banner--error" role="alert">{catalogError}</p>
+                : null}
+              {empty ? <p className="pstack-banner pstack-banner--warn">{t('emptyCatalog')}</p> : null}
+              {dropped.length > 0 ? <p className="pstack-banner pstack-banner--warn">{t('dropped')}</p> : null}
+
+              {GROUPS.map(group => {
+                const roles = group.roles.filter(matches)
+                if (roles.length === 0) return null
+                return (
+                  <section key={group.id} className="pstack-group" aria-label={t(group.id)}>
+                    <div className="pstack-group-head">
+                      <h3 className="pstack-group-title">{t(group.id)}</h3>
+                      <span className="pstack-group-count">{roles.length}</span>
+                    </div>
+                    {group.id === 'groupPanels' ? <p className="pstack-hint">{t('panelHint')}</p> : null}
+                    <div className="pstack-card">
+                      {roles.map(role => {
+                        const draft = drafts.find(entry => entry.role === role)
+                        if (draft === undefined) return null
+                        const controlId = roleId(role)
+                        if (!draft.panel) {
+                          const route = draft.routes[0]
                           return (
-                            <div key={role}>
-                              <div className="pstack-panel-head">
-                                <div className="pstack-panel-head-main">
-                                  <RoleId role={role} descId={`pstack-desc-${role}`} t={t} />
-                                  <span className="pstack-badge">
-                                    {draft.inherit ? t('inherit') : t('panelRoutes', { count: rows.length })}
-                                  </span>
-                                </div>
-                                {draft.inherit
-                                  ? (
-                                      <RouteSelect
-                                        label={`${role} · ${t('route')}`}
-                                        value={draft.inheritChoice}
-                                        live={[]}
-                                        t={t}
-                                        disabled={busy}
-                                        onChange={value => {
-                                          if (value === 'inherit-parent' || value === 'auto') {
-                                            patchRole(role, current => ({ ...current, inherit: true, inheritChoice: value, routes: [] }))
-                                          }
-                                        }}
-                                      />
-                                    )
-                                  : <span className="pstack-spacer" />}
-                                {draft.inherit
-                                  ? (
-                                      <button
-                                        type="button"
-                                        className="pstack-button pstack-button--ghost"
-                                        disabled={busy || empty}
-                                        onClick={() => {
-                                          const added = firstRoute(live)
-                                          if (added === undefined) return
-                                          patchRole(role, current => ({ ...current, inherit: false, routes: [added] }))
-                                        }}
-                                      >
-                                        {t('configureRoutes')}
-                                      </button>
-                                    )
-                                  : (
-                                      <button
-                                        type="button"
-                                        className="pstack-button pstack-button--ghost"
-                                        disabled={busy}
-                                        onClick={() => {
-                                          patchRole(role, current => ({ ...current, inherit: true, inheritChoice: 'inherit-parent', routes: [] }))
-                                        }}
-                                      >
-                                        {t('inherit')}
-                                      </button>
-                                    )}
-                              </div>
-                              {draft.inherit
-                                ? null
-                                : (
-                                    <div className="pstack-panel-body">
-                                      {rows.map((route, index) => (
-                                        <div key={`${role}-${index}`} className="pstack-route-row">
-                                          <span className="pstack-index" aria-hidden="true">{index + 1}</span>
-                                          <RouteSelect
-                                            id={`pstack-panel-${role}-${index}`}
-                                            label={`${role} ${index + 1} · ${t('route')}`}
-                                            describedBy={`pstack-desc-${role}`}
-                                            value={routeSelectValue({ ...draft, inherit: false, routes: [route] })}
-                                            live={live}
-                                            t={t}
-                                            disabled={busy || empty}
-                                            onChange={value => { setPanelChoice(role, index, value) }}
-                                          />
-                                          <EffortSelect
-                                            id={`pstack-panel-effort-${role}-${index}`}
-                                            label={`${role} ${index + 1} · ${t('effort')}`}
-                                            describedBy={`pstack-desc-${role}`}
-                                            route={route}
-                                            live={live}
-                                            t={t}
-                                            disabled={busy}
-                                            onChange={next => {
-                                              patchRole(role, current => {
-                                                const nextRoutes = [...current.routes]
-                                                nextRoutes[index] = next
-                                                return { ...current, inherit: false, routes: nextRoutes }
-                                              })
-                                            }}
-                                          />
-                                          <button
-                                            type="button"
-                                            className="pstack-remove"
-                                            aria-label={t('removeRoute')}
-                                            title={t('removeRoute')}
-                                            disabled={busy}
-                                            onClick={() => {
-                                              patchRole(role, current => {
-                                                const nextRoutes = current.routes.filter((_, item) => item !== index)
-                                                return nextRoutes.length === 0
-                                                  ? { ...current, inherit: true, routes: [] }
-                                                  : { ...current, inherit: false, routes: nextRoutes }
-                                              })
-                                            }}
-                                          >
-                                            ×
-                                          </button>
-                                        </div>
-                                      ))}
-                                      <div className="pstack-inline">
-                                        <button
-                                          type="button"
-                                          className="pstack-button pstack-button--outline"
-                                          title={t('addRouteHint')}
-                                          disabled={busy || empty}
-                                          onClick={() => {
-                                            const added = firstRoute(live)
-                                            if (added === undefined) return
-                                            patchRole(role, current => ({
-                                              ...current,
-                                              inherit: false,
-                                              routes: [...(current.inherit ? [] : current.routes), added],
-                                            }))
-                                          }}
-                                        >
-                                          {t('addRoute')}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
+                            <div key={role} className="pstack-row">
+                              <RoleId role={role} descId={`pstack-desc-${controlId}`} t={t} />
+                              <RouteSelect
+                                id={`pstack-role-${controlId}`}
+                                describedBy={`pstack-desc-${controlId}`}
+                                label={`${role} · ${t('route')}`}
+                                value={routeSelectValue(draft)}
+                                live={live}
+                                t={t}
+                                disabled={busy}
+                                onChange={value => { setScalarChoice(role, value) }}
+                              />
+                              {route !== undefined && !draft.inherit
+                                ? (
+                                    <EffortSelect
+                                      id={`pstack-effort-${controlId}`}
+                                      label={`${role} · ${t('effort')}`}
+                                      describedBy={`pstack-desc-${controlId}`}
+                                      route={route}
+                                      live={live}
+                                      t={t}
+                                      disabled={busy}
+                                      onChange={next => { patchRole(role, current => ({ ...current, routes: [next] })) }}
+                                    />
+                                  )
+                                : <div className="pstack-spacer" />}
                             </div>
                           )
-                        })}
-                      </div>
-                    </section>
-                  )
-                })}
-                {GROUPS.every(group => group.roles.filter(matches).length === 0)
-                  ? <p className="pstack-note">{t('noMatch')}</p>
-                  : null}
-              </div>
+                        }
+                        const rows = draft.inherit ? [] : draft.routes
+                        return (
+                          <div key={role}>
+                            <div className="pstack-panel-head">
+                              <RoleId
+                                role={role}
+                                descId={`pstack-desc-${controlId}`}
+                                t={t}
+                                trailing={
+                                  <Tag tone={draft.inherit ? 'quiet' : 'neutral'}>
+                                    {draft.inherit ? t('inherit') : t('panelRoutes', { count: rows.length })}
+                                  </Tag>
+                                }
+                              />
+                              {draft.inherit
+                                ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={busy || empty}
+                                      onClick={() => {
+                                        const added = firstRoute(live)
+                                        if (added === undefined) return
+                                        patchRole(role, current => ({ ...current, inherit: false, routes: [added] }))
+                                      }}
+                                    >
+                                      {t('configureRoutes')}
+                                    </Button>
+                                  )
+                                : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={busy}
+                                      onClick={() => {
+                                        patchRole(role, current => ({ ...current, inherit: true, inheritChoice: 'inherit-parent', routes: [] }))
+                                      }}
+                                    >
+                                      {t('inherit')}
+                                    </Button>
+                                  )}
+                            </div>
+                            {draft.inherit
+                              ? null
+                              : (
+                                  <div className="pstack-panel-body">
+                                    {rows.map((route, index) => (
+                                      <div key={`${role}-${index}`} className="pstack-route-row">
+                                        <span className="pstack-index" aria-hidden="true">{index + 1}</span>
+                                        <RouteSelect
+                                          id={`pstack-panel-${controlId}-${index}`}
+                                          label={`${role} ${index + 1} · ${t('route')}`}
+                                          describedBy={`pstack-desc-${controlId}`}
+                                          value={routeSelectValue({ ...draft, inherit: false, routes: [route] })}
+                                          live={live}
+                                          t={t}
+                                          disabled={busy || empty}
+                                          onChange={value => { setPanelChoice(role, index, value) }}
+                                        />
+                                        <EffortSelect
+                                          id={`pstack-panel-effort-${controlId}-${index}`}
+                                          label={`${role} ${index + 1} · ${t('effort')}`}
+                                          describedBy={`pstack-desc-${controlId}`}
+                                          route={route}
+                                          live={live}
+                                          t={t}
+                                          disabled={busy}
+                                          onChange={next => {
+                                            patchRole(role, current => {
+                                              const nextRoutes = [...current.routes]
+                                              nextRoutes[index] = next
+                                              return { ...current, inherit: false, routes: nextRoutes }
+                                            })
+                                          }}
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="pstack-remove"
+                                          icon={<IconTrashOutlineRegular size={14} aria-hidden="true" />}
+                                          aria-label={t('removeRoute')}
+                                          title={t('removeRoute')}
+                                          disabled={busy}
+                                          onClick={() => {
+                                            patchRole(role, current => {
+                                              const nextRoutes = current.routes.filter((_, item) => item !== index)
+                                              return nextRoutes.length === 0
+                                                ? { ...current, inherit: true, routes: [] }
+                                                : { ...current, inherit: false, routes: nextRoutes }
+                                            })
+                                          }}
+                                        />
+                                      </div>
+                                    ))}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="pstack-add"
+                                      title={t('addRouteHint')}
+                                      icon={<IconPlusOutlineRegular size={14} aria-hidden="true" />}
+                                      disabled={busy || empty}
+                                      onClick={() => {
+                                        const added = firstRoute(live)
+                                        if (added === undefined) return
+                                        patchRole(role, current => ({
+                                          ...current,
+                                          inherit: false,
+                                          routes: [...(current.inherit ? [] : current.routes), added],
+                                        }))
+                                      }}
+                                    >
+                                      {t('addRoute')}
+                                    </Button>
+                                  </div>
+                                )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
+                )
+              })}
+              {GROUPS.every(group => group.roles.filter(matches).length === 0)
+                ? <p className="pstack-note">{t('noMatch')}</p>
+                : null}
 
               <footer className="pstack-foot">
-                <div className="pstack-status" role="status" aria-live="polite">
-                  <span className={`pstack-dot${dirty ? ' pstack-dot--dirty' : ''}`} aria-hidden="true" />
-                  <span className="pstack-status-text">{dirty ? t('dirty') : t('clean')}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{t('configured', { configured, total })}</span>
-                  {path.length > 0
-                    ? <span className="pstack-path" title={`${t('overlayPath')}: ${path}`}>{path}</span>
-                    : null}
-                </div>
-                {error !== undefined ? <p className="pstack-foot-error" role="alert">{error}</p> : null}
-                {notice !== undefined ? <p className="pstack-foot-ok" role="status">{notice}</p> : null}
-                <div className="pstack-foot-actions">
-                  <button type="button" className="pstack-button pstack-button--ghost" disabled={busy || !dirty} onClick={discard}>
-                    {t('discard')}
-                  </button>
-                  <button
-                    type="button"
-                    className="pstack-button pstack-button--outline"
-                    disabled={busy}
-                    onClick={() => {
-                      setDrafts(current => current === undefined ? current : applyInheritAll(current))
-                      setNotice(undefined)
-                    }}
-                  >
-                    {t('resetAll')}
-                  </button>
-                  <button type="button" className="pstack-button pstack-button--primary" disabled={busy || !dirty} onClick={() => { void save() }}>
-                    {busy ? t('saving') : t('save')}
-                  </button>
+                {error !== undefined ? <p className="pstack-banner pstack-banner--error" role="alert">{error}</p> : null}
+                {notice !== undefined ? <p className="pstack-banner pstack-banner--ok" role="status">{notice}</p> : null}
+                <div className="pstack-foot-row">
+                  <div className="pstack-status" role="status" aria-live="polite">
+                    <StateDot state={dirty ? 'warning' : 'idle'} />
+                    <span className="pstack-status-text">{dirty ? t('dirty') : t('clean')}</span>
+                  </div>
+                  <div className="pstack-foot-actions">
+                    <Button variant="ghost" size="md" disabled={busy || !dirty} onClick={discard}>
+                      {t('discard')}
+                    </Button>
+                    <Button variant="primary" size="md" disabled={busy || !dirty} onClick={() => { void save() }}>
+                      {busy ? t('saving') : t('save')}
+                    </Button>
+                  </div>
                 </div>
               </footer>
             </>

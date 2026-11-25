@@ -23,7 +23,7 @@ const snapshot = () => ({
   catalog: {
     routes, overlayPath: '(test-only)', overlayMissing: true, inheritParent: true,
   },
-  overlay: { version: 1, roles: {} }, path: '(test-only)', missing: true, droppedRoles: [],
+  overlay: { version: 1, roles: {} }, path: '(test-only)', missing: true, droppedRoles: [], potetoDefault: false,
 })
 
 const browser = await launchPinnedChromium()
@@ -82,37 +82,36 @@ try {
   }
   const hasChoice = async (value, available = true) => {
     await page.waitForFunction(({ value, available }) => {
-      const option = [...document.querySelectorAll('#pstack-role-feature option')].find(entry => entry.value === value)
+      const option = [...document.querySelectorAll('#pstack-role-feature-refactoring option')].find(entry => entry.value === value)
       return option !== undefined && option.disabled === !available
     }, { value, available }, { timeout: 6000 })
   }
   await page.goto(origin, { waitUntil: 'domcontentloaded' })
-  await page.getByText('设置', { exact: true }).first().click()
-  await page.getByText('插件', { exact: true }).first().click()
+  await page.getByRole('button', { name: '插件', exact: true }).first().click()
   await page.getByRole('button', { name: /^查看 .*pstack/i }).first().click()
-  // The author display rule must not resurrect a closed <dialog>.
-  assert.equal(await page.locator('.pstack-dialog').isVisible(), false, 'closed dialog stays hidden')
-  await page.locator('.pstack-trigger').click()
-  assert.equal(await page.locator('.pstack-dialog').isVisible(), true, 'trigger opens the dialog')
-  const feature = page.locator('#pstack-role-feature')
+  // The bundle's configuration renders in the page body, not in a dialog.
+  const config = page.locator('.pstack-page')
+  await config.waitFor({ state: 'visible' })
+  const feature = page.locator('#pstack-role-feature-refactoring')
   await feature.selectOption('deepseek-official::fixture-base')
-  await page.locator('#pstack-effort-feature').selectOption('high')
+  await page.locator('#pstack-effort-feature-refactoring').selectOption('high')
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isEnabled(), true)
 
   routes = [base, glm]
   await notify()
   await hasChoice('pi-zai-coding-cn::glm-5.3-flash')
   assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
-  assert.equal(await page.locator('#pstack-effort-feature').inputValue(), 'high')
+  assert.equal(await page.locator('#pstack-effort-feature-refactoring').inputValue(), 'high')
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isEnabled(), true)
 
   const beforeManual = requests
   const manualResponse = page.waitForResponse(response => response.url() === `${origin}/plugins/pstack-dsh/settings`)
-  await page.getByRole('button', { name: '刷新', exact: true }).click()
+  // The page header carries its own 刷新, so this one is scoped to the form.
+  await page.locator('.pstack-tools').getByRole('button', { name: '刷新', exact: true }).click()
   await manualResponse
   assert.ok(requests > beforeManual)
   assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
-  assert.equal(await page.locator('#pstack-effort-feature').inputValue(), 'high')
+  assert.equal(await page.locator('#pstack-effort-feature-refactoring').inputValue(), 'high')
 
   routes = [glm]
   await notify('llm/models-updated', ['deepseek-official'])
@@ -123,7 +122,7 @@ try {
   routes = [base, glm]
   await page.evaluate(() => { window.dispatchEvent(new Event('focus')) })
   await hasChoice('deepseek-official::fixture-base')
-  assert.equal(await page.locator('#pstack-effort-feature').inputValue(), 'high')
+  assert.equal(await page.locator('#pstack-effort-feature-refactoring').inputValue(), 'high')
 
   // A slow pre-change snapshot must not replace a newer catalog.
   let release
@@ -140,26 +139,29 @@ try {
   await page.waitForTimeout(100)
   assert.equal(await feature.locator('option[value="pi-zai-coding-cn::stale-fixture"]').count(), 0)
 
-  await page.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.locator('.pstack-dialog').waitFor({ state: 'hidden' })
-  const afterClose = requests
+  // Leaving the page owns the draft: the form unmounts, unsubscribes, and the
+  // staged edit is gone when the page is opened again.
+  await page.getByRole('button', { name: /返回插件/ }).click()
+  await config.waitFor({ state: 'hidden' })
+  const afterLeave = requests
   await notify()
   await page.waitForTimeout(100)
-  assert.equal(requests, afterClose, 'Closing the role editor must unsubscribe')
+  assert.equal(requests, afterLeave, 'Leaving the page must unsubscribe')
   assert.deepEqual(errors, [])
 
-  // Reopening keeps the unsaved draft instead of throwing away the user's edits.
-  await page.locator('.pstack-trigger').click()
-  assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
-  assert.equal(await page.locator('#pstack-effort-feature').inputValue(), 'high')
-  assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isEnabled(), true)
+  await page.getByRole('button', { name: /^查看 .*pstack/i }).first().click()
+  await config.waitFor({ state: 'visible' })
+  assert.equal(await feature.inputValue(), 'inherit-parent', 'staged edit dropped on leave')
+  assert.equal(await page.locator('#pstack-effort-feature-refactoring').count(), 0)
+  assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isDisabled(), true)
   assert.deepEqual(errors, [])
   console.log(JSON.stringify({
     url: origin, candidate: candidate !== undefined, simulatedHostNotifications: true,
-    automaticModelUpdate: true, unsavedRoleAndEffortPreserved: true,
-    logoutChoiceMarked: true, staleResponseIgnored: true, unsubscribedOnClose: true,
+    automaticModelUpdate: true, stagedEditsDroppedOnLeave: true,
+    logoutChoiceMarked: true, staleResponseIgnored: true, unsubscribedOnLeave: true,
     writes: 0,
   }, null, 2))
 } finally {
   await browser.close()
 }
+

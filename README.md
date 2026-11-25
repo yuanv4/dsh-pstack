@@ -22,13 +22,15 @@ Then start a session and turn on the **poteto workflow** row in the model menu.
 
 DSH's `subagent` tool takes no model and no effort. So a role's model lives in `$DSH_HOME/pstack-dsh.json` and `pstack_spawn` reads it at spawn time. A single job may still pass `model` and `reasoning_effort` to adjust that route, the way upstream skills adjust a delegate per task. Nine roles can hold a mapping, matching upstream's `setup-pstack` lines. Any other role name a skill uses runs on the conversation's own route.
 
-Open **插件 → pstack-dsh → 配置** to edit the mapping. The page lists every model DSH currently offers, with that model's own reasoning efforts.
+Open **插件 → pstack-dsh**. The bundle's page carries the role editor under its description: every model DSH currently offers, with that model's own reasoning efforts, plus the **新会话默认启用 poteto 工作流** switch described below. The editor is a page section, not a dialog, so leaving the page drops unsaved edits.
 
 The [DSH platform map](harness/pstack/dsh/generated/docs/harness/dsh.md) lists runtime mappings and skipped features. Run `node scripts/generate-pstack-harness-trees.mjs --check` to check the generated tree without changing it.
 
 ## Turn the switch on
 
 The plugin is inert in a session until you turn it on. The control is the **poteto workflow** row in the model menu, next to **Enable Agent Teams**; there is no command and no skill entry point. The choice is stored per session in `$DSH_HOME/pstack-poteto.json` and restored on the next start; if the Web client is unavailable, add or remove the session id there and restart DSH.
+
+To start every new session with the workflow already on, open **插件 → pstack-dsh** and turn on **新会话默认启用 poteto 工作流** on that page, then save. The default is stored in `$DSH_HOME/pstack-settings.json`; it applies to sessions created after you save and never changes a session that is already open. The model-menu row still turns an individual session off again.
 
 While the switch is on, the session gets the whole workflow:
 

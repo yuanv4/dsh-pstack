@@ -9,17 +9,20 @@
  * delegation tools are left alone and every bundled tool and skill is withheld.
  *
  * The switch is controlled from the model menu row in the Web client and stored
- * per session in `$DSH_HOME/pstack-poteto.json`.
+ * per session in `$DSH_HOME/pstack-poteto.json`. The saved default in
+ * `$DSH_HOME/pstack-settings.json` only decides what a brand-new session starts
+ * with; it never changes a session that is already open.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Agent, SessionStartSource } from '@deepseek-ai/dsh-agent'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { parseSkillMarkdown } from './frontmatter.ts'
 import { resolveDshHome } from './home.ts'
 import { PSTACK_TOOLS } from './ids.ts'
+import { readPotetoDefault } from './poteto-default.ts'
 
 export const MODE_FILENAME = 'pstack-poteto.json'
 /** Native delegation tools that would bypass the role mapping. */
@@ -144,6 +147,8 @@ export interface PotetoModeHooks {
 
 interface AgentCreatedPayload {
   readonly agent: Agent
+  /** Why the session lifecycle began: `startup` creates, while `resume`, `clear`, and `compact` continue a session. */
+  readonly source?: SessionStartSource
 }
 
 const sessionIdOf = (agent: Agent): string => String(agent.session.id)
@@ -177,15 +182,35 @@ function sameDenials(denied: ReadonlySet<string>, wanted: readonly string[]): bo
 /**
  * Install the switch. Call once from `apply`.
  *
- * The switch is the plugin's only control surface: it is reached from the Web
- * client's model-menu row, which talks to `registerPstackPotetoRoutes`, and its
- * state lives in `$DSH_HOME/pstack-poteto.json`.
+ * The per-session switch is reached from the Web client's model-menu row, which
+ * talks to `registerPstackPotetoRoutes`, and its state lives in
+ * `$DSH_HOME/pstack-poteto.json`. A session lifecycle that begins at `startup`
+ * also reads the default in `$DSH_HOME/pstack-settings.json`, so a new session
+ * can start switched on without a per-session request.
  */
 export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): PotetoSwitch {
   const modes = readModes()
   const applied = new Map<Agent, Applied>()
   const agentsRuntime = (): AgentRuntime | undefined => ctx.get('agents') as AgentRuntime | undefined
   const agentOf = (sessionId: string): Agent | undefined => agentsRuntime()?.get(sessionId)
+
+  /**
+   * Persist the whole set, one write at a time.
+   *
+   * Two writers exist: the model-menu switch and a new session's default. Each
+   * rewrites the file from the live set and renames it into place, so an
+   * unordered pair of renames can leave the earlier snapshot on disk and lose
+   * the other session's id. Chaining the writes makes the last one the newest
+   * set; the set is read when its turn comes, so a queued write sees every
+   * change made before it ran. A failed write rejects its own caller and does
+   * not stop the ones behind it.
+   */
+  let writes: Promise<void> = Promise.resolve()
+  const persistModes = (): Promise<void> => {
+    const next = writes.then(() => writeModes(modes), () => writeModes(modes))
+    writes = next.then(() => undefined, () => undefined)
+    return next
+  }
 
   /**
    * Converge one agent's surface on its switch state. Re-running is free and
@@ -284,7 +309,7 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
     }
     if (enabled) modes.add(sessionId)
     else modes.delete(sessionId)
-    await writeModes(modes)
+    await persistModes()
     reconcile()
     hooks.onChanged?.()
     return stateOf(sessionId)
@@ -292,8 +317,28 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
 
   const switchApi: PotetoSwitch = { read: stateOf, setEnabled, sync }
 
+  /**
+   * Start a brand-new session in the saved default state.
+   *
+   * Only a lifecycle that begins at `startup` is new; `resume`, `clear`, and
+   * `compact` continue a session whose switch the user already saw. The mode is
+   * added in memory before the agent's surface is reconciled, so the first
+   * prompt already has the switched-on tools. A session created under the
+   * default must still be on after a restart, so the write is awaited, but a
+   * failed write must not fail session creation.
+   */
+  const applyDefault = (agent: Agent): Promise<undefined> | undefined => {
+    if (!isRootAgent(agent) || !readPotetoDefault()) return undefined
+    const sessionId = sessionIdOf(agent)
+    if (modes.has(sessionId)) return undefined
+    modes.add(sessionId)
+    return persistModes().then(() => undefined, () => undefined)
+  }
+
   ctx.on('agent/created', (payload: AgentCreatedPayload) => {
+    const persisted = payload.source === 'startup' ? applyDefault(payload.agent) : undefined
     reconcile(payload.agent)
+    return persisted
   })
 
   ctx.on('agent/disposed', (payload: AgentCreatedPayload) => {

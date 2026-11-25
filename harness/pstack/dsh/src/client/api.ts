@@ -8,6 +8,14 @@ export interface SettingsSnapshot {
   path: string
   missing: boolean
   droppedRoles: string[]
+  /** Whether a newly created session starts with the poteto workflow on. */
+  potetoDefault: boolean
+}
+
+export interface SettingsSaveResult {
+  path: string
+  overlay: Overlay
+  potetoDefault: boolean
 }
 
 type CatalogEvent = 'llm/adapters-updated' | 'llm/models-updated' | 'settings/document-updated' | 'credentials/reference-updated'
@@ -52,8 +60,8 @@ export function loadSettingsSnapshot(signal?: AbortSignal): Promise<SettingsSnap
   return jsonRequest<SettingsSnapshot>(SETTINGS_SNAPSHOT_PATH, 'GET', undefined, signal)
 }
 
-export function saveSettingsOverlay(overlay: Overlay): Promise<{ path: string; overlay: Overlay }> {
-  return jsonRequest<{ path: string; overlay: Overlay }>(SETTINGS_SAVE_PATH, 'PUT', { overlay })
+export function saveSettingsOverlay(overlay: Overlay, potetoDefault: boolean): Promise<SettingsSaveResult> {
+  return jsonRequest<SettingsSaveResult>(SETTINGS_SAVE_PATH, 'PUT', { overlay, potetoDefault })
 }
 
 export interface PotetoState {

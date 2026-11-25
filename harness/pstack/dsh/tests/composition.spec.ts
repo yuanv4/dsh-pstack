@@ -38,7 +38,7 @@ describe('bundle composition', () => {
     assert.doesNotMatch(manifest, /\btsdown\b|\bdshx\.yml\b/)
   })
 
-  it('declares a web client half on plugins.detail.actions, not a second config file', async () => {
+  it('declares a web client half on the plugin page, not a second config file', async () => {
     const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as {
       name: string
       exports: Record<string, unknown>
@@ -51,12 +51,16 @@ describe('bundle composition', () => {
     assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-locale'))
   })
 
-  it('registers plugins.detail.actions for pstack from the client entry', async () => {
+  it('registers the bundle configuration page for pstack from the client entry', async () => {
     const source = await readFile(join(root, 'harness/pstack/dsh/src/client/index.tsx'), 'utf8')
     assert.match(source, /export function apply/)
     assert.match(source, /export const inject = \['slots', 'locale', 'remote'\]/)
     assert.doesNotMatch(source, /export\s+default\s+/)
-    assert.match(source, /plugins\.detail\.actions/)
-    assert.match(source, /subject\.pkg\.name !== PLUGIN_ID/)
+    // DSH renders a bundle's own configuration on its Plugins page; a second
+    // surface beside it (a head action and its dialog) is what this replaces.
+    assert.match(source, /ctx\.slots\.inject\('plugins\.bundle\.config'/)
+    assert.match(source, /key: PLUGIN_ID/)
+    assert.doesNotMatch(source, /plugins\.detail\.actions/)
+    assert.doesNotMatch(source, /<dialog/)
   })
 })

@@ -20,9 +20,6 @@ export const PSTACK_TOOLS = [TOOL_CATALOG, TOOL_OVERLAY_READ, TOOL_OVERLAY_WRITE
 /** Default in-process spawn provider. `packages/bundle/base/cordis.patch.yml` `providerName: spawn`. */
 export const SPAWN_PROVIDER = 'spawn'
 
-/** Role editor entry id. Official slot `plugins.detail.actions` (`packages/client/ui-plugin-manager/src/client/slot-contract.ts`). */
-export const ROLE_EDITOR_ENTRY_ID = 'pstack-role-settings'
-
 /** Same-origin Web routes. Pattern: dsh-oauth-login `src/auth-routes.ts`. */
 export const SETTINGS_SNAPSHOT_PATH = '/plugins/pstack-dsh/settings'
 export const SETTINGS_SAVE_PATH = '/plugins/pstack-dsh/settings'

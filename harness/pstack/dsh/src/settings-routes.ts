@@ -8,10 +8,6 @@ import { SETTINGS_SNAPSHOT_PATH } from './ids.ts'
 import { json, readJson, trustedRequest } from './http-trust.ts'
 import { loadSettingsSnapshot, saveSettingsOverlay } from './settings-api.ts'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 async function handleSnapshot(host: CatalogHost, req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'GET') {
     json(res, 405, { error: 'method not allowed' })
@@ -27,8 +23,7 @@ async function handleSave(host: CatalogHost, req: IncomingMessage, res: ServerRe
   }
   try {
     const body = await readJson(req)
-    const overlay = isRecord(body) && 'overlay' in body ? body.overlay : body
-    const saved = await saveSettingsOverlay(host, overlay)
+    const saved = await saveSettingsOverlay(host, body)
     json(res, 200, saved)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'save failed'

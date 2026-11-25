@@ -31,7 +31,6 @@ __export(index_exports, {
   name: () => name
 });
 module.exports = __toCommonJS(index_exports);
-var import_react3 = require("react");
 
 // harness/pstack/dsh/src/client/PotetoToggle.tsx
 var import_react = require("react");
@@ -122,6 +121,7 @@ function PotetoToggle({ sessionId, readMode, selectMode, t }) {
 
 // harness/pstack/dsh/src/client/PstackSettings.tsx
 var import_react2 = require("react");
+var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
 
 // harness/pstack/dsh/src/roles.ts
 var SCALAR_ROLES = [
@@ -251,7 +251,6 @@ function parseRouteSelectValue(value, live) {
 
 // harness/pstack/dsh/src/ids.ts
 var PLUGIN_ID = "pstack-dsh";
-var ROLE_EDITOR_ENTRY_ID = "pstack-role-settings";
 var SETTINGS_SNAPSHOT_PATH = "/plugins/pstack-dsh/settings";
 var SETTINGS_SAVE_PATH = "/plugins/pstack-dsh/settings";
 var POTETO_STATE_PATH = "/plugins/pstack-dsh/poteto";
@@ -288,8 +287,8 @@ async function jsonRequest(path, method, body, signal) {
 function loadSettingsSnapshot(signal) {
   return jsonRequest(SETTINGS_SNAPSHOT_PATH, "GET", void 0, signal);
 }
-function saveSettingsOverlay(overlay) {
-  return jsonRequest(SETTINGS_SAVE_PATH, "PUT", { overlay });
+function saveSettingsOverlay(overlay, potetoDefault) {
+  return jsonRequest(SETTINGS_SAVE_PATH, "PUT", { overlay, potetoDefault });
 }
 function readPotetoState(sessionId, signal) {
   return jsonRequest(`${POTETO_STATE_PATH}?session=${encodeURIComponent(sessionId)}`, "GET", void 0, signal);
@@ -318,114 +317,96 @@ var DESCRIPTION_KEY = {
   "interrogate reviewers": "descInterrogateReviewers"
 };
 var SETTINGS_CSS = `
-.pstack-page { display:flex; flex-direction:column; flex:1 0 auto; color:var(--dsw-alias-label-primary); }
-.pstack-page .pstack-button {
-  flex:none; min-height:32px; padding:0 12px; border:1px solid transparent; border-radius:8px;
-  background:transparent; color:var(--dsw-alias-label-primary); font:inherit; font-size:13px; cursor:pointer;
-  white-space:nowrap;
-}
-.pstack-page .pstack-button--primary { background:var(--dsw-alias-button-primary-fill); color:var(--dsw-alias-label-primary-inverted); }
-.pstack-page .pstack-button--outline { border-color:var(--dsw-alias-border-l2); }
-.pstack-page .pstack-button--ghost { color:var(--dsw-alias-label-secondary); }
-.pstack-page .pstack-button:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:2px; }
-.pstack-page .pstack-button:disabled { cursor:default; opacity:.45; }
-@media (hover:hover) {
-  .pstack-page .pstack-button--ghost:not(:disabled):hover,
-  .pstack-page .pstack-button--outline:not(:disabled):hover { background:var(--dsw-alias-interactive-bg-hover); }
-  .pstack-page .pstack-button--primary:not(:disabled):hover { background:var(--dsw-alias-button-primary-hover); }
-}
-.pstack-page .pstack-button:not(:disabled):active { background:var(--dsw-alias-interactive-bg-active); }
+.pstack-page { display:flex; flex-direction:column; gap:16px; width:100%; max-width:760px; color:var(--dsw-alias-label-primary); }
 
-.pstack-page .pstack-tools {
-  position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
-  padding:10px 16px; background:var(--dsw-alias-bg-layer-2);
-  border-bottom:0.5px solid var(--dsw-alias-border-l2);
-}
-.pstack-page .pstack-search {
-  flex:1 1 180px; min-width:120px; height:32px; padding:0 10px; border:1px solid var(--dsw-alias-border-l2);
-  border-radius:8px; background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary);
-  font:inherit; font-size:13px;
-}
-.pstack-page .pstack-search::placeholder { color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-search:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:-1px; }
+.pstack-head { display:flex; flex-direction:column; gap:4px; }
+.pstack-section-head { display:flex; align-items:baseline; gap:10px; }
+.pstack-section-title { margin:0; font-size:14px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-section-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-secondary); font-variant-numeric:tabular-nums; }
+.pstack-intro { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 
-.pstack-page .pstack-list { display:flex; flex-direction:column; flex:1 0 auto; gap:18px; padding:16px; }
-.pstack-page .pstack-group { display:flex; flex-direction:column; gap:6px; }
-.pstack-page .pstack-group-head { display:flex; align-items:baseline; gap:8px; padding:0 2px; }
-.pstack-page .pstack-group-title { margin:0; font-size:12px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-secondary); }
-.pstack-page .pstack-group-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+.pstack-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.pstack-search { position:relative; display:flex; flex:1 1 180px; align-items:center; min-width:120px; color:var(--dsw-alias-label-tertiary); }
+.pstack-search > svg { position:absolute; left:10px; pointer-events:none; }
+.pstack-search input {
+  box-sizing:border-box; width:100%; height:32px; padding:0 10px 0 32px;
+  border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md);
+  background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-primary);
+  font:inherit; font-size:13px; line-height:22px;
+}
+.pstack-search input::placeholder { color:var(--dsw-alias-label-dimmed); }
+.pstack-search input:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
 
-.pstack-page .pstack-card {
-  border:0.5px solid var(--dsw-alias-settings-card-stroke); border-radius:var(--dsw-radius-md, 10px);
+.pstack-select {
+  box-sizing:border-box; width:100%; height:32px; min-width:0; padding:0 8px;
+  border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md);
+  background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-primary);
+  font:inherit; font-size:13px; line-height:22px;
+}
+.pstack-select:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
+.pstack-select:disabled { opacity:.6; cursor:default; }
+.pstack-select--auto { flex:0 1 200px; width:auto; max-width:200px; }
+
+.pstack-defaults { display:flex; flex-direction:column; gap:8px; }
+.pstack-default-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.pstack-default-text { display:flex; flex:1 1 220px; flex-direction:column; gap:2px; min-width:0; }
+.pstack-default-label { font-size:13px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-default-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+
+.pstack-group { display:flex; flex-direction:column; gap:8px; }
+.pstack-group-head { display:flex; align-items:baseline; gap:8px; }
+.pstack-group-title { margin:0; font-size:14px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-group-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); font-variant-numeric:tabular-nums; }
+.pstack-hint { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+
+.pstack-card {
+  border:0.5px solid var(--dsw-alias-settings-card-stroke); border-radius:var(--dsw-radius-xl);
   background:var(--dsw-alias-settings-card-fill); overflow:hidden;
 }
-.pstack-page .pstack-card > * + * { border-top:0.5px solid var(--dsw-alias-border-l1); }
+.pstack-card > * + * { border-top:0.5px solid var(--dsw-alias-border-l2); }
 
-.pstack-page .pstack-row {
-  display:grid; grid-template-columns:minmax(150px,1fr) minmax(170px,1.35fr) minmax(104px,132px);
-  gap:10px; align-items:center; padding:7px 12px;
+.pstack-row {
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,290px) minmax(96px,104px);
+  gap:10px; align-items:center; padding:8px 14px;
 }
-.pstack-page .pstack-id { display:flex; flex-direction:column; gap:1px; min-width:0; }
-.pstack-page .pstack-role {
-  font-size:13px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-primary);
-  font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+.pstack-id { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.pstack-id-line { display:flex; align-items:baseline; gap:8px; min-width:0; }
+.pstack-role {
+  min-width:0; font-family:var(--ds-font-family-code); font-size:13px; line-height:18px; font-weight:500;
+  color:var(--dsw-alias-label-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.pstack-page .pstack-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pstack-page .pstack-select {
-  width:100%; height:32px; min-width:0; padding:0 8px; border:1px solid var(--dsw-alias-border-l2); border-radius:8px;
-  background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary); font:inherit; font-size:13px;
-}
-.pstack-page .pstack-select:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:-1px; }
-.pstack-page .pstack-select:disabled { color:var(--dsw-alias-label-tertiary); cursor:default; }
-.pstack-page .pstack-spacer { min-height:1px; }
-.pstack-page .pstack-inline { display:flex; gap:6px; align-items:center; min-width:0; }
+.pstack-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pstack-spacer { min-height:1px; }
+.pstack-inline { display:flex; align-items:center; gap:8px; min-width:0; }
 
-.pstack-page .pstack-panel-head {
-  display:grid; grid-template-columns:minmax(150px,1fr) auto auto; gap:10px; align-items:center; padding:7px 12px;
+.pstack-panel-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 14px; }
+.pstack-panel-body { display:flex; flex-direction:column; gap:8px; margin:0 14px 12px; padding:12px; border-radius:var(--dsw-radius-lg); background:var(--dsw-alias-bg-module-platform); }
+.pstack-panel-body > .pstack-add { align-self:flex-start; }
+.pstack-route-row { display:grid; grid-template-columns:16px minmax(0,1fr) minmax(96px,104px) auto; gap:8px; align-items:center; }
+.pstack-index { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); text-align:right; font-variant-numeric:tabular-nums; }
+/* Later than the shared Button rules and more specific, so the icon-only row action keeps its 28px box. */
+.pstack-remove.pstack-remove { width:28px; min-width:28px; padding:0; color:var(--dsw-alias-label-tertiary); }
+@media (hover:hover) {
+  .pstack-remove.pstack-remove:hover:not(:disabled) { background:var(--dsw-alias-interactive-bg-hover-danger); color:var(--dsw-alias-state-error-primary); }
 }
-.pstack-page .pstack-panel-head-main { display:flex; align-items:center; gap:8px; min-width:0; }
-.pstack-page .pstack-badge {
-  flex:none; padding:1px 7px; border-radius:999px; font-size:12px; line-height:18px;
-  color:var(--dsw-alias-label-secondary); background:var(--dsw-alias-bg-layer-3);
-}
-.pstack-page .pstack-panel-body { display:flex; flex-direction:column; gap:6px; padding:8px 12px 10px 24px; background:var(--dsw-alias-bg-layer-1); }
-.pstack-page .pstack-route-row { display:grid; grid-template-columns:18px minmax(120px,1fr) minmax(96px,124px) auto; gap:8px; align-items:center; }
-.pstack-page .pstack-index { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); text-align:right; }
-.pstack-page .pstack-remove {
-  flex:none; width:28px; height:28px; padding:0; border:1px solid transparent; border-radius:var(--dsw-radius-sm, 6px);
-  background:transparent; color:var(--dsw-alias-label-tertiary); font:inherit; font-size:15px; line-height:1; cursor:pointer;
-}
-@media (hover:hover) { .pstack-page .pstack-remove:hover { background:var(--dsw-alias-interactive-bg-hover); color:var(--dsw-alias-label-primary); } }
-.pstack-page .pstack-remove:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:1px; }
 
-.pstack-page .pstack-foot {
-  position:sticky; bottom:0; z-index:2; margin-top:auto;
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-  justify-content:space-between; padding:10px 16px;
-  background:var(--dsw-alias-bg-layer-2); border-top:0.5px solid var(--dsw-alias-border-l2);
-}
-.pstack-page .pstack-status { display:flex; align-items:center; gap:8px; min-width:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--dsw-alias-state-idle-primary); }
-.pstack-page .pstack-dot--dirty { background:var(--dsw-alias-state-warn-primary); }
-.pstack-page .pstack-status-text { color:var(--dsw-alias-label-secondary); }
-.pstack-page .pstack-path { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:240px; }
-.pstack-page .pstack-foot-error { flex:1 1 100%; margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
-.pstack-page .pstack-foot-ok { flex:1 1 100%; margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-state-success-primary); }
-.pstack-page .pstack-select--auto { width:auto; }
-.pstack-page .pstack-hint { margin:0; padding:0 2px; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-foot-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
+.pstack-foot { display:flex; flex-direction:column; gap:8px; padding-top:16px; }
+.pstack-foot-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.pstack-status { display:flex; align-items:center; gap:6px; min-width:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+.pstack-status-text { color:var(--dsw-alias-label-secondary); }
+.pstack-foot-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
 
-.pstack-page .pstack-note { margin:0; padding:16px; font-size:13px; line-height:20px; color:var(--dsw-alias-label-tertiary); }
-.pstack-page .pstack-warn { margin:0; padding:8px 16px; font-size:12px; line-height:18px; color:var(--dsw-alias-state-warn-label); }
-.pstack-page .pstack-error { margin:0; padding:8px 16px; font-size:12px; line-height:18px; color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
+.pstack-note { margin:0; font-size:13px; line-height:20px; color:var(--dsw-alias-label-tertiary); }
+.pstack-banner { margin:0; border-radius:var(--dsw-radius-lg); padding:8px 10px; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
+.pstack-banner--warn { background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, transparent); color:var(--dsw-alias-state-warn-label); }
+.pstack-banner--ok { background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent); color:var(--dsw-alias-state-success-primary); }
+.pstack-banner--error { background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
 
-@media (width <= 720px) {
-  .pstack-page .pstack-row { grid-template-columns:1fr; }
-  .pstack-page .pstack-panel-head { grid-template-columns:1fr; }
-  .pstack-page .pstack-route-row { grid-template-columns:minmax(0,1fr) auto auto; }
-  .pstack-page .pstack-index { display:none; }
-  .pstack-page .pstack-path { display:none; }
+@media (width <= 640px) {
+  .pstack-row { grid-template-columns:1fr; }
+  .pstack-panel-head { grid-template-columns:1fr; }
+  .pstack-route-row { grid-template-columns:minmax(0,1fr) auto auto; }
+  .pstack-index { display:none; }
 }
 `;
 function overlaysEqual(left, right) {
@@ -436,9 +417,26 @@ function firstRoute(routes) {
   if (route === void 0) return void 0;
   return { provider: route.provider, model: route.model };
 }
-function RoleId({ role, descId, t }) {
+function roleId(role) {
+  return role.replace(/[^a-z0-9]+/giu, "-").replace(/^-|-$/gu, "");
+}
+function SearchIcon() {
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "7", cy: "7", r: "4.25", fill: "none", stroke: "currentColor", strokeWidth: "1.4" }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M10.2 10.2 13.5 13.5", stroke: "currentColor", strokeWidth: "1.4", strokeLinecap: "round" })
+  ] });
+}
+function RoleId({
+  role,
+  descId,
+  t,
+  trailing
+}) {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-id", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "pstack-role", children: role }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-id-line", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "pstack-role", children: role }),
+      trailing
+    ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-desc", id: descId, children: t(DESCRIPTION_KEY[role]) })
   ] });
 }
@@ -520,12 +518,12 @@ function RouteSelect({
     }
   );
 }
-function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
-  if (t === void 0) throw new Error("pstack settings requires its translation function");
+function PstackSettings({ t, subscribeCatalogChanges }) {
   const [drafts, setDrafts] = (0, import_react2.useState)(void 0);
   const [saved, setSaved] = (0, import_react2.useState)(void 0);
+  const [savedDefault, setSavedDefault] = (0, import_react2.useState)(void 0);
+  const [draftDefault, setDraftDefault] = (0, import_react2.useState)(void 0);
   const [live, setLive] = (0, import_react2.useState)([]);
-  const [path, setPath] = (0, import_react2.useState)("");
   const [dropped, setDropped] = (0, import_react2.useState)([]);
   const [error, setError] = (0, import_react2.useState)(void 0);
   const [catalogError, setCatalogError] = (0, import_react2.useState)(void 0);
@@ -544,10 +542,11 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
       const snapshot = await loadSettingsSnapshot(request.signal);
       if (request.signal.aborted) return;
       setLive(snapshot.catalog.routes);
-      setPath(snapshot.path);
       if (!initialized.current) {
         setSaved(snapshot.overlay);
         setDrafts(overlayToDraft(snapshot.overlay));
+        setSavedDefault(snapshot.potetoDefault);
+        setDraftDefault(snapshot.potetoDefault);
         setDropped(snapshot.droppedRoles);
         initialized.current = true;
       }
@@ -561,26 +560,25 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
     }
   }, [t]);
   (0, import_react2.useEffect)(() => {
-    if (!active) return;
     const reload = () => {
       void refresh();
     };
     const visible = () => {
       if (document.visibilityState === "visible") reload();
     };
-    const stop = subscribeCatalogChanges?.(reload);
+    const stop = subscribeCatalogChanges(reload);
     window.addEventListener("focus", reload);
     document.addEventListener("visibilitychange", visible);
     reload();
     return () => {
-      stop?.();
+      stop();
       window.removeEventListener("focus", reload);
       document.removeEventListener("visibilitychange", visible);
       catalogRequest.current?.abort();
     };
-  }, [refresh, subscribeCatalogChanges, active]);
+  }, [refresh, subscribeCatalogChanges]);
   const currentOverlay = (0, import_react2.useMemo)(() => drafts === void 0 ? void 0 : draftToOverlay(drafts), [drafts]);
-  const dirty = saved !== void 0 && currentOverlay !== void 0 && !overlaysEqual(saved, currentOverlay);
+  const dirty = saved !== void 0 && currentOverlay !== void 0 && !overlaysEqual(saved, currentOverlay) || savedDefault !== void 0 && draftDefault !== void 0 && savedDefault !== draftDefault;
   const empty = live.length === 0;
   const configured = drafts === void 0 ? 0 : drafts.filter((draft) => VISIBLE_ROLES.includes(draft.role) && !draft.inherit && draft.routes.length > 0).length;
   const total = VISIBLE_ROLES.length;
@@ -610,14 +608,16 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
     });
   };
   const save = async () => {
-    if (currentOverlay === void 0) return;
+    if (currentOverlay === void 0 || draftDefault === void 0) return;
     setBusy(true);
     setNotice(void 0);
     setError(void 0);
     try {
-      const result = await saveSettingsOverlay(currentOverlay);
+      const result = await saveSettingsOverlay(currentOverlay, draftDefault);
       setSaved(result.overlay);
       setDrafts(overlayToDraft(result.overlay));
+      setSavedDefault(result.potetoDefault);
+      setDraftDefault(result.potetoDefault);
       setDropped([]);
       setError(void 0);
       setNotice(t("saved"));
@@ -631,6 +631,7 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
   const discard = () => {
     if (saved === void 0) return;
     setDrafts(overlayToDraft(saved));
+    setDraftDefault(savedDefault);
     setDropped([]);
     setNotice(void 0);
     setError(void 0);
@@ -648,33 +649,35 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
     {
       className: "pstack-page",
       "aria-busy": busy || refreshing,
-      onFocusCapture: (event) => {
-        if (event.target instanceof HTMLSelectElement) void refresh();
-      },
-      onPointerDownCapture: (event) => {
-        if (event.target instanceof HTMLSelectElement) void refresh();
-      },
       children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: SETTINGS_CSS }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-section-head", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-section-title", children: t("title") }),
+            drafts === void 0 ? null : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-section-count", children: t("configured", { configured, total }) })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-intro", children: t("intro") })
+        ] }),
         drafts === void 0 ? catalogError === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-note", role: "status", "aria-busy": "true", children: t("loading") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-error", role: "alert", children: catalogError }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-note", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "pstack-button pstack-button--outline", onClick: () => {
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: catalogError }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-inline", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Button, { variant: "outline", size: "sm", onClick: () => {
             void refresh();
           }, children: t("reload") }) })
         ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-tools", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                autoFocus: true,
-                type: "search",
-                className: "pstack-search",
-                placeholder: t("search"),
-                "aria-label": t("search"),
-                value: query,
-                onChange: (event) => setQuery(event.target.value)
-              }
-            ),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-search", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SearchIcon, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "search",
+                  placeholder: t("search"),
+                  "aria-label": t("search"),
+                  value: query,
+                  onChange: (event) => setQuery(event.target.value)
+                }
+              )
+            ] }),
             !empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
               "select",
               {
@@ -712,12 +715,11 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
               }
             ) : null,
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "button",
+              import_dsh_client_ui_primitives2.Button,
               {
-                type: "button",
-                className: "pstack-button pstack-button--outline",
+                variant: "outline",
+                size: "sm",
                 title: t("catalogUpdates"),
-                "aria-busy": refreshing,
                 disabled: busy || refreshing,
                 onClick: () => {
                   void refresh();
@@ -726,215 +728,215 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
               }
             )
           ] }),
-          catalogError !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-error", role: "alert", children: catalogError }) : null,
-          empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-warn", children: t("emptyCatalog") }) : null,
-          dropped.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-warn", children: t("dropped") }) : null,
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-list", children: [
-            GROUPS.map((group) => {
-              const roles = group.roles.filter(matches);
-              if (roles.length === 0) return null;
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-group", "aria-label": t(group.id), children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-group-head", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-group-title", children: t(group.id) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-group-count", children: roles.length })
-                ] }),
-                group.id === "groupPanels" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-hint", children: t("panelHint") }) : null,
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-card", children: roles.map((role) => {
-                  const draft = drafts.find((entry) => entry.role === role);
-                  if (draft === void 0) return null;
-                  if (!draft.panel) {
-                    const route = draft.routes[0];
-                    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-row", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RoleId, { role, descId: `pstack-desc-${role}`, t }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-defaults", "aria-label": t("defaultsTitle"), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-group-title", children: t("defaultsTitle") }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-default-row", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-default-text", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-default-label", children: t("potetoDefaultLabel") }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-default-desc", children: t("potetoDefaultDescription") })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                import_dsh_client_ui_primitives2.Switch,
+                {
+                  checked: draftDefault ?? false,
+                  disabled: busy || draftDefault === void 0,
+                  label: t("potetoDefaultLabel"),
+                  onChange: (next) => {
+                    setDraftDefault(next);
+                    setNotice(void 0);
+                    setError(void 0);
+                  }
+                }
+              )
+            ] })
+          ] }),
+          catalogError !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: catalogError }) : null,
+          empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--warn", children: t("emptyCatalog") }) : null,
+          dropped.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--warn", children: t("dropped") }) : null,
+          GROUPS.map((group) => {
+            const roles = group.roles.filter(matches);
+            if (roles.length === 0) return null;
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-group", "aria-label": t(group.id), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-group-head", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-group-title", children: t(group.id) }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-group-count", children: roles.length })
+              ] }),
+              group.id === "groupPanels" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-hint", children: t("panelHint") }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-card", children: roles.map((role) => {
+                const draft = drafts.find((entry) => entry.role === role);
+                if (draft === void 0) return null;
+                const controlId = roleId(role);
+                if (!draft.panel) {
+                  const route = draft.routes[0];
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-row", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RoleId, { role, descId: `pstack-desc-${controlId}`, t }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      RouteSelect,
+                      {
+                        id: `pstack-role-${controlId}`,
+                        describedBy: `pstack-desc-${controlId}`,
+                        label: `${role} \xB7 ${t("route")}`,
+                        value: routeSelectValue(draft),
+                        live,
+                        t,
+                        disabled: busy,
+                        onChange: (value) => {
+                          setScalarChoice(role, value);
+                        }
+                      }
+                    ),
+                    route !== void 0 && !draft.inherit ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      EffortSelect,
+                      {
+                        id: `pstack-effort-${controlId}`,
+                        label: `${role} \xB7 ${t("effort")}`,
+                        describedBy: `pstack-desc-${controlId}`,
+                        route,
+                        live,
+                        t,
+                        disabled: busy,
+                        onChange: (next) => {
+                          patchRole(role, (current) => ({ ...current, routes: [next] }));
+                        }
+                      }
+                    ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-spacer" })
+                  ] }, role);
+                }
+                const rows = draft.inherit ? [] : draft.routes;
+                return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-panel-head", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      RoleId,
+                      {
+                        role,
+                        descId: `pstack-desc-${controlId}`,
+                        t,
+                        trailing: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tag, { tone: draft.inherit ? "quiet" : "neutral", children: draft.inherit ? t("inherit") : t("panelRoutes", { count: rows.length }) })
+                      }
+                    ),
+                    draft.inherit ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      import_dsh_client_ui_primitives2.Button,
+                      {
+                        variant: "outline",
+                        size: "sm",
+                        disabled: busy || empty,
+                        onClick: () => {
+                          const added = firstRoute(live);
+                          if (added === void 0) return;
+                          patchRole(role, (current) => ({ ...current, inherit: false, routes: [added] }));
+                        },
+                        children: t("configureRoutes")
+                      }
+                    ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      import_dsh_client_ui_primitives2.Button,
+                      {
+                        variant: "ghost",
+                        size: "sm",
+                        disabled: busy,
+                        onClick: () => {
+                          patchRole(role, (current) => ({ ...current, inherit: true, inheritChoice: "inherit-parent", routes: [] }));
+                        },
+                        children: t("inherit")
+                      }
+                    )
+                  ] }),
+                  draft.inherit ? null : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-panel-body", children: [
+                    rows.map((route, index) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-route-row", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-index", "aria-hidden": "true", children: index + 1 }),
                       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                         RouteSelect,
                         {
-                          id: `pstack-role-${role}`,
-                          describedBy: `pstack-desc-${role}`,
-                          label: `${role} \xB7 ${t("route")}`,
-                          value: routeSelectValue(draft),
+                          id: `pstack-panel-${controlId}-${index}`,
+                          label: `${role} ${index + 1} \xB7 ${t("route")}`,
+                          describedBy: `pstack-desc-${controlId}`,
+                          value: routeSelectValue({ ...draft, inherit: false, routes: [route] }),
                           live,
                           t,
-                          disabled: busy,
+                          disabled: busy || empty,
                           onChange: (value) => {
-                            setScalarChoice(role, value);
+                            setPanelChoice(role, index, value);
                           }
                         }
                       ),
-                      route !== void 0 && !draft.inherit ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                         EffortSelect,
                         {
-                          id: `pstack-effort-${role}`,
-                          label: `${role} \xB7 ${t("effort")}`,
-                          describedBy: `pstack-desc-${role}`,
+                          id: `pstack-panel-effort-${controlId}-${index}`,
+                          label: `${role} ${index + 1} \xB7 ${t("effort")}`,
+                          describedBy: `pstack-desc-${controlId}`,
                           route,
                           live,
                           t,
                           disabled: busy,
                           onChange: (next) => {
-                            patchRole(role, (current) => ({ ...current, routes: [next] }));
+                            patchRole(role, (current) => {
+                              const nextRoutes = [...current.routes];
+                              nextRoutes[index] = next;
+                              return { ...current, inherit: false, routes: nextRoutes };
+                            });
                           }
                         }
-                      ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-spacer" })
-                    ] }, role);
-                  }
-                  const rows = draft.inherit ? [] : draft.routes;
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-panel-head", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-panel-head-main", children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(RoleId, { role, descId: `pstack-desc-${role}`, t }),
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-badge", children: draft.inherit ? t("inherit") : t("panelRoutes", { count: rows.length }) })
-                      ] }),
-                      draft.inherit ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                        RouteSelect,
+                      ),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                        import_dsh_client_ui_primitives2.Button,
                         {
-                          label: `${role} \xB7 ${t("route")}`,
-                          value: draft.inheritChoice,
-                          live: [],
-                          t,
+                          variant: "ghost",
+                          size: "sm",
+                          className: "pstack-remove",
+                          icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconTrashOutlineRegular, { size: 14, "aria-hidden": "true" }),
+                          "aria-label": t("removeRoute"),
+                          title: t("removeRoute"),
                           disabled: busy,
-                          onChange: (value) => {
-                            if (value === "inherit-parent" || value === "auto") {
-                              patchRole(role, (current) => ({ ...current, inherit: true, inheritChoice: value, routes: [] }));
-                            }
+                          onClick: () => {
+                            patchRole(role, (current) => {
+                              const nextRoutes = current.routes.filter((_, item) => item !== index);
+                              return nextRoutes.length === 0 ? { ...current, inherit: true, routes: [] } : { ...current, inherit: false, routes: nextRoutes };
+                            });
                           }
-                        }
-                      ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-spacer" }),
-                      draft.inherit ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                        "button",
-                        {
-                          type: "button",
-                          className: "pstack-button pstack-button--ghost",
-                          disabled: busy || empty,
-                          onClick: () => {
-                            const added = firstRoute(live);
-                            if (added === void 0) return;
-                            patchRole(role, (current) => ({ ...current, inherit: false, routes: [added] }));
-                          },
-                          children: t("configureRoutes")
-                        }
-                      ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                        "button",
-                        {
-                          type: "button",
-                          className: "pstack-button pstack-button--ghost",
-                          disabled: busy,
-                          onClick: () => {
-                            patchRole(role, (current) => ({ ...current, inherit: true, inheritChoice: "inherit-parent", routes: [] }));
-                          },
-                          children: t("inherit")
                         }
                       )
-                    ] }),
-                    draft.inherit ? null : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-panel-body", children: [
-                      rows.map((route, index) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-route-row", children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-index", "aria-hidden": "true", children: index + 1 }),
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                          RouteSelect,
-                          {
-                            id: `pstack-panel-${role}-${index}`,
-                            label: `${role} ${index + 1} \xB7 ${t("route")}`,
-                            describedBy: `pstack-desc-${role}`,
-                            value: routeSelectValue({ ...draft, inherit: false, routes: [route] }),
-                            live,
-                            t,
-                            disabled: busy || empty,
-                            onChange: (value) => {
-                              setPanelChoice(role, index, value);
-                            }
-                          }
-                        ),
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                          EffortSelect,
-                          {
-                            id: `pstack-panel-effort-${role}-${index}`,
-                            label: `${role} ${index + 1} \xB7 ${t("effort")}`,
-                            describedBy: `pstack-desc-${role}`,
-                            route,
-                            live,
-                            t,
-                            disabled: busy,
-                            onChange: (next) => {
-                              patchRole(role, (current) => {
-                                const nextRoutes = [...current.routes];
-                                nextRoutes[index] = next;
-                                return { ...current, inherit: false, routes: nextRoutes };
-                              });
-                            }
-                          }
-                        ),
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                          "button",
-                          {
-                            type: "button",
-                            className: "pstack-remove",
-                            "aria-label": t("removeRoute"),
-                            title: t("removeRoute"),
-                            disabled: busy,
-                            onClick: () => {
-                              patchRole(role, (current) => {
-                                const nextRoutes = current.routes.filter((_, item) => item !== index);
-                                return nextRoutes.length === 0 ? { ...current, inherit: true, routes: [] } : { ...current, inherit: false, routes: nextRoutes };
-                              });
-                            },
-                            children: "\xD7"
-                          }
-                        )
-                      ] }, `${role}-${index}`)),
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-inline", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                        "button",
-                        {
-                          type: "button",
-                          className: "pstack-button pstack-button--outline",
-                          title: t("addRouteHint"),
-                          disabled: busy || empty,
-                          onClick: () => {
-                            const added = firstRoute(live);
-                            if (added === void 0) return;
-                            patchRole(role, (current) => ({
-                              ...current,
-                              inherit: false,
-                              routes: [...current.inherit ? [] : current.routes, added]
-                            }));
-                          },
-                          children: t("addRoute")
-                        }
-                      ) })
-                    ] })
-                  ] }, role);
-                }) })
-              ] }, group.id);
-            }),
-            GROUPS.every((group) => group.roles.filter(matches).length === 0) ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-note", children: t("noMatch") }) : null
-          ] }),
+                    ] }, `${role}-${index}`)),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      import_dsh_client_ui_primitives2.Button,
+                      {
+                        variant: "outline",
+                        size: "sm",
+                        className: "pstack-add",
+                        title: t("addRouteHint"),
+                        icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconPlusOutlineRegular, { size: 14, "aria-hidden": "true" }),
+                        disabled: busy || empty,
+                        onClick: () => {
+                          const added = firstRoute(live);
+                          if (added === void 0) return;
+                          patchRole(role, (current) => ({
+                            ...current,
+                            inherit: false,
+                            routes: [...current.inherit ? [] : current.routes, added]
+                          }));
+                        },
+                        children: t("addRoute")
+                      }
+                    )
+                  ] })
+                ] }, role);
+              }) })
+            ] }, group.id);
+          }),
+          GROUPS.every((group) => group.roles.filter(matches).length === 0) ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-note", children: t("noMatch") }) : null,
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("footer", { className: "pstack-foot", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-status", role: "status", "aria-live": "polite", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `pstack-dot${dirty ? " pstack-dot--dirty" : ""}`, "aria-hidden": "true" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-status-text", children: dirty ? t("dirty") : t("clean") }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { "aria-hidden": "true", children: "\xB7" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("configured", { configured, total }) }),
-              path.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-path", title: `${t("overlayPath")}: ${path}`, children: path }) : null
-            ] }),
-            error !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-foot-error", role: "alert", children: error }) : null,
-            notice !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-foot-ok", role: "status", children: notice }) : null,
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-foot-actions", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "pstack-button pstack-button--ghost", disabled: busy || !dirty, onClick: discard, children: t("discard") }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                "button",
-                {
-                  type: "button",
-                  className: "pstack-button pstack-button--outline",
-                  disabled: busy,
-                  onClick: () => {
-                    setDrafts((current) => current === void 0 ? current : applyInheritAll(current));
-                    setNotice(void 0);
-                  },
-                  children: t("resetAll")
-                }
-              ),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { type: "button", className: "pstack-button pstack-button--primary", disabled: busy || !dirty, onClick: () => {
-                void save();
-              }, children: busy ? t("saving") : t("save") })
+            error !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: error }) : null,
+            notice !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--ok", role: "status", children: notice }) : null,
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-foot-row", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-status", role: "status", "aria-live": "polite", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.StateDot, { state: dirty ? "warning" : "idle" }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-status-text", children: dirty ? t("dirty") : t("clean") })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-foot-actions", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Button, { variant: "ghost", size: "md", disabled: busy || !dirty, onClick: discard, children: t("discard") }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Button, { variant: "primary", size: "md", disabled: busy || !dirty, onClick: () => {
+                  void save();
+                }, children: busy ? t("saving") : t("save") })
+              ] })
             ] })
           ] })
         ] })
@@ -945,10 +947,11 @@ function PstackSettings({ t, subscribeCatalogChanges, active = true }) {
 
 // harness/pstack/dsh/src/client/locales.ts
 var en = {
-  nav: "Configure",
   title: "pstack roles",
   intro: "Pick a model for each role. Roles without a route inherit this conversation.",
-  close: "Close",
+  defaultsTitle: "Defaults",
+  potetoDefaultLabel: "Enable the poteto workflow in new sessions",
+  potetoDefaultDescription: "New sessions start with the workflow on. Open sessions keep their own switch.",
   loading: "Loading models\u2026",
   search: "Search roles",
   route: "Model",
@@ -971,15 +974,12 @@ var en = {
   reload: "Refresh",
   reloading: "Refreshing\u2026",
   catalogUpdates: "The list follows DSH model changes and keeps unsaved edits.",
-  resetAll: "Inherit all",
   applyAll: "Apply to all roles",
   applyAllInherit: "Inherit for every role",
   inheritParent: "inherit-parent",
   emptyCatalog: "DSH lists no models. Every role inherits this conversation.",
-  overlayPath: "Overlay",
   dropped: "Some saved routes are no longer listed by DSH. Those roles inherit until you save again.",
   requestFailed: "The settings request failed.",
-  rolesAndModels: "pstack roles and models",
   switchLabel: "poteto workflow",
   switchDescription: "On: this session gets the pstack tools and skills, and native subagent tools are denied so delegation goes through pstack_spawn and the role mapping. Off: the plugin adds no tools, skills, or prompt to this session.",
   switchInfoLabel: "About the poteto workflow switch",
@@ -999,10 +999,11 @@ var en = {
   descInterrogateReviewers: "Adversarial multi-model review"
 };
 var zh = {
-  nav: "\u914D\u7F6E",
   title: "pstack \u89D2\u8272",
   intro: "\u4E3A\u6BCF\u4E2A\u89D2\u8272\u9009\u62E9\u6A21\u578B\u3002\u672A\u914D\u7F6E\u7684\u89D2\u8272\u7EE7\u627F\u5F53\u524D\u5BF9\u8BDD\u3002",
-  close: "\u5173\u95ED",
+  defaultsTitle: "\u9ED8\u8BA4\u914D\u7F6E",
+  potetoDefaultLabel: "\u65B0\u4F1A\u8BDD\u9ED8\u8BA4\u542F\u7528 poteto \u5DE5\u4F5C\u6D41",
+  potetoDefaultDescription: "\u4FDD\u5B58\u540E\u65B0\u5EFA\u7684\u4F1A\u8BDD\u81EA\u52A8\u5F00\u542F poteto \u5DE5\u4F5C\u6D41\uFF1B\u5DF2\u6253\u5F00\u7684\u4F1A\u8BDD\u4FDD\u6301\u81EA\u5DF1\u7684\u5F00\u5173\u72B6\u6001\u3002",
   loading: "\u6B63\u5728\u52A0\u8F7D\u6A21\u578B\u2026",
   search: "\u641C\u7D22\u89D2\u8272",
   route: "\u6A21\u578B",
@@ -1025,15 +1026,12 @@ var zh = {
   reload: "\u5237\u65B0",
   reloading: "\u5237\u65B0\u4E2D\u2026",
   catalogUpdates: "\u5217\u8868\u968F DSH \u6A21\u578B\u53D8\u5316\u81EA\u52A8\u66F4\u65B0\uFF0C\u4E0D\u4F1A\u8986\u76D6\u672A\u4FDD\u5B58\u7684\u4FEE\u6539\u3002",
-  resetAll: "\u5168\u90E8\u7EE7\u627F",
   applyAll: "\u5E94\u7528\u5230\u5168\u90E8\u89D2\u8272",
   applyAllInherit: "\u5168\u90E8\u89D2\u8272\u6539\u4E3A\u7EE7\u627F",
   inheritParent: "\u7EE7\u627F\u7236\u5BF9\u8BDD",
   emptyCatalog: "DSH \u6CA1\u6709\u5217\u51FA\u4EFB\u4F55\u6A21\u578B\uFF0C\u6240\u6709\u89D2\u8272\u90FD\u7EE7\u627F\u5F53\u524D\u5BF9\u8BDD\u3002",
-  overlayPath: "\u914D\u7F6E\u6587\u4EF6",
   dropped: "\u90E8\u5206\u5DF2\u4FDD\u5B58\u7684\u8DEF\u7531\u5DF2\u4E0D\u5728 DSH \u5217\u8868\u4E2D\uFF0C\u8FD9\u4E9B\u89D2\u8272\u5728\u4F60\u91CD\u65B0\u4FDD\u5B58\u524D\u4F1A\u6539\u4E3A\u7EE7\u627F\u3002",
   requestFailed: "\u8BBE\u7F6E\u8BF7\u6C42\u5931\u8D25\u3002",
-  rolesAndModels: "pstack \u89D2\u8272\u4E0E\u6A21\u578B",
   switchLabel: "poteto \u5DE5\u4F5C\u6D41",
   switchDescription: "\u5F00\u542F\u540E\u672C\u4F1A\u8BDD\u83B7\u5F97 pstack \u5DE5\u5177\u4E0E skill\uFF0C\u5E76\u7981\u7528\u539F\u751F subagent\uFF0C\u59D4\u6D3E\u8D70 pstack_spawn \u4E0E\u89D2\u8272\u6620\u5C04\uFF1B\u5173\u95ED\u540E\u672C\u4F1A\u8BDD\u4E0D\u4F7F\u7528 pstack \u7684\u4EFB\u4F55\u5DE5\u5177\u3001skill \u6216\u63D0\u793A\u3002",
   switchInfoLabel: "\u5173\u4E8E poteto \u5DE5\u4F5C\u6D41\u5F00\u5173",
@@ -1054,108 +1052,19 @@ var zh = {
 };
 
 // harness/pstack/dsh/src/client/index.tsx
-var import_jsx_runtime3 = require("react/jsx-runtime");
 var name = "pstack-dsh-client";
 var inject = ["slots", "locale", "remote"];
-var CHROME_CSS = `
-.pstack-trigger {
-  flex:none; height:28px; padding:0 10px; border:1px solid var(--dsw-alias-border-l2);
-  border-radius:var(--dsw-radius-sm, 6px); background:transparent; color:var(--dsw-alias-label-primary);
-  font:inherit; font-size:12px; line-height:18px; cursor:pointer;
-}
-.pstack-trigger:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:2px; }
-@media (hover:hover) { .pstack-trigger:hover { background:var(--dsw-alias-interactive-bg-hover); } }
-.pstack-trigger:active { background:var(--dsw-alias-interactive-bg-active); }
-
-.pstack-dialog {
-  box-sizing:border-box; padding:0; overflow:hidden;
-  width:min(860px, calc(100vw - 32px)); max-height:calc(100dvh - 48px);
-  border:0; border-radius:var(--dsw-radius-panel, 16px);
-  box-shadow:var(--dsw-elevation-prominent, 0 12px 32px rgb(0 0 0 / 24%));
-  background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-primary);
-}
-/* Author display beats the UA rule for closed dialogs, so scope flex to the open state. */
-.pstack-dialog[open] { display:flex; flex-direction:column; gap:0; }
-.pstack-dialog:not([open]) { display:none; }
-.pstack-dialog::backdrop { background:var(--dsw-alias-bg-mask-1, rgb(0 0 0 / 40%)); backdrop-filter:var(--dsw-mask-blur, blur(2px)); }
-.pstack-dialog-head {
-  flex:none; display:flex; align-items:flex-start; gap:12px;
-  padding:16px 16px 12px; border-bottom:0.5px solid var(--dsw-alias-border-l2);
-}
-.pstack-dialog-titles { display:flex; flex-direction:column; gap:2px; min-width:0; }
-.pstack-dialog-title { margin:0; font-size:16px; line-height:24px; font-weight:500; color:var(--dsw-alias-label-primary); }
-.pstack-dialog-sub { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
-.pstack-dialog-close {
-  flex:none; margin-left:auto; display:grid; place-items:center; width:28px; height:28px; padding:0;
-  border:1px solid transparent; border-radius:var(--dsw-radius-sm, 6px); background:transparent;
-  color:var(--dsw-alias-label-secondary); cursor:pointer;
-}
-.pstack-dialog-close:focus-visible { outline:var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary)); outline-offset:2px; }
-@media (hover:hover) { .pstack-dialog-close:hover { background:var(--dsw-alias-interactive-bg-hover); color:var(--dsw-alias-label-primary); } }
-.pstack-dialog-body { display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; }
-`;
-function CloseIcon() {
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("svg", { width: "14", height: "14", viewBox: "0 0 14 14", "aria-hidden": "true", focusable: "false", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("path", { d: "M2.5 2.5l9 9M11.5 2.5l-9 9", stroke: "currentColor", strokeWidth: "1.5", strokeLinecap: "round" }) });
-}
-function PstackDetailAction({ subject, t, subscribeCatalogChanges }) {
-  const dialog = (0, import_react3.useRef)(null);
-  const titleId = (0, import_react3.useId)();
-  const [mounted, setMounted] = (0, import_react3.useState)(false);
-  const [open, setOpen] = (0, import_react3.useState)(false);
-  if (subject.kind !== "bundle" || subject.pkg.name !== PLUGIN_ID) return null;
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("style", { children: CHROME_CSS }),
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-      "button",
-      {
-        type: "button",
-        className: "pstack-trigger",
-        title: t("rolesAndModels"),
-        "aria-haspopup": "dialog",
-        "aria-expanded": open,
-        onClick: () => {
-          dialog.current?.showModal();
-          setMounted(true);
-          setOpen(true);
-        },
-        children: t("nav")
-      }
-    ),
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
-      "dialog",
-      {
-        ref: dialog,
-        className: "pstack-dialog",
-        "aria-labelledby": titleId,
-        "data-window-drag-exclude": "",
-        onClose: () => setOpen(false),
-        onClick: (event) => {
-          if (event.target === dialog.current) dialog.current.close();
-        },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("header", { className: "pstack-dialog-head", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "pstack-dialog-titles", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("h2", { id: titleId, className: "pstack-dialog-title", children: t("title") }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("p", { className: "pstack-dialog-sub", children: t("intro") })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "pstack-dialog-close", "aria-label": t("close"), title: t("close"), onClick: () => dialog.current?.close(), children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CloseIcon, {}) })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "pstack-dialog-body", children: mounted && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(PstackSettings, { t, subscribeCatalogChanges, active: open }) })
-        ]
-      }
-    )
-  ] });
-}
 function apply(ctx) {
   const namespace = "settings.pstack";
   ctx.effect(() => ctx.locale.register(namespace, { zh, en }), "pstack-dsh: editor copy");
   const t = ctx.locale.bind(namespace);
   const subscribeCatalogChanges = (listener) => listenForCatalogChanges(ctx, listener);
-  ctx.slots.inject("plugins.detail.actions", () => ctx.slots.register({
-    name: "plugins.detail.actions",
-    id: ROLE_EDITOR_ENTRY_ID,
+  ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
+    name: "plugins.bundle.config",
+    key: PLUGIN_ID,
+    locale: namespace,
     inject: () => ({ t, subscribeCatalogChanges })
-  }, PstackDetailAction));
+  }, PstackSettings));
   const switchSlot = "conversation.input.model.options";
   ctx.slots.inject(switchSlot, () => ctx.slots.register({
     name: switchSlot,
