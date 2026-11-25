@@ -195,23 +195,14 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
   const agentsRuntime = (): AgentRuntime | undefined => ctx.get('agents') as AgentRuntime | undefined
   const agentOf = (sessionId: string): Agent | undefined => agentsRuntime()?.get(sessionId)
 
-  /**
-   * Persist the whole set, one write at a time.
-   *
-   * Two writers exist: the model-menu switch and a new session's default. Each
-   * rewrites the file from the live set and renames it into place, so an
-   * unordered pair of renames can leave the earlier snapshot on disk and lose
-   * the other session's id. Chaining the writes makes the last one the newest
-   * set; the set is read when its turn comes, so a queued write sees every
-   * change made before it ran. A failed write rejects its own caller and does
-   * not stop the ones behind it.
-   */
+  /** Serialize default writes and complete manual changes to the shared file. */
   let writes: Promise<void> = Promise.resolve()
-  const persistModes = (): Promise<void> => {
-    const next = writes.then(() => writeModes(modes), () => writeModes(modes))
+  const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
+    const next = writes.then(operation)
     writes = next.then(() => undefined, () => undefined)
     return next
   }
+  const persistModes = (): Promise<void> => enqueue(() => writeModes(modes))
 
   /**
    * Converge one agent's surface on its switch state. Re-running is free and
@@ -308,12 +299,17 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
     if (enabled && agent !== undefined && !isRootAgent(agent)) {
       throw new Error('the poteto switch is only available in the session that runs the workflow, not in a delegate')
     }
-    if (enabled) modes.add(sessionId)
-    else modes.delete(sessionId)
-    await persistModes()
-    reconcile()
-    hooks.onChanged?.()
-    return stateOf(sessionId)
+    return enqueue(async () => {
+      const candidate = new Set(modes)
+      if (enabled) candidate.add(sessionId)
+      else candidate.delete(sessionId)
+      await writeModes(candidate)
+      if (enabled) modes.add(sessionId)
+      else modes.delete(sessionId)
+      reconcile()
+      hooks.onChanged?.()
+      return stateOf(sessionId)
+    })
   }
 
   const switchApi: PotetoSwitch = {

@@ -784,11 +784,12 @@ function registerPotetoMode(ctx, hooks = {}) {
   const agentsRuntime = () => ctx.get("agents");
   const agentOf = (sessionId) => agentsRuntime()?.get(sessionId);
   let writes = Promise.resolve();
-  const persistModes = () => {
-    const next = writes.then(() => writeModes(modes), () => writeModes(modes));
+  const enqueue = (operation) => {
+    const next = writes.then(operation);
     writes = next.then(() => void 0, () => void 0);
     return next;
   };
+  const persistModes = () => enqueue(() => writeModes(modes));
   const applyTo = (agent) => {
     const enabled = isSessionEnabled(ctx, modes, sessionIdOf(agent));
     const root = isRootAgent(agent);
@@ -859,12 +860,17 @@ function registerPotetoMode(ctx, hooks = {}) {
     if (enabled && agent !== void 0 && !isRootAgent(agent)) {
       throw new Error("the poteto switch is only available in the session that runs the workflow, not in a delegate");
     }
-    if (enabled) modes.add(sessionId);
-    else modes.delete(sessionId);
-    await persistModes();
-    reconcile();
-    hooks.onChanged?.();
-    return stateOf(sessionId);
+    return enqueue(async () => {
+      const candidate = new Set(modes);
+      if (enabled) candidate.add(sessionId);
+      else candidate.delete(sessionId);
+      await writeModes(candidate);
+      if (enabled) modes.add(sessionId);
+      else modes.delete(sessionId);
+      reconcile();
+      hooks.onChanged?.();
+      return stateOf(sessionId);
+    });
   };
   const switchApi = {
     read: stateOf,
