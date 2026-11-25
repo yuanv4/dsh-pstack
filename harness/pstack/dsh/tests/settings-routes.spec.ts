@@ -110,16 +110,19 @@ describe('settings route save body', () => {
     try {
       const { ctx, handler } = settingsContext()
       registerPstackSettingsRoutes(ctx, catalogHost(home))
-      const save = await request(handler(), 'PUT', {
-        overlay: { version: 1, roles: {} },
-        potetoDefault: true,
+      const combined = await request(handler(), 'PUT', {
+        overlay: { version: 1, roles: {} }, potetoDefault: true,
       })
+      assert.equal(combined.status, 400)
+      const save = await request(handler(), 'PUT', { overlay: { version: 1, roles: {} } })
       assert.equal(save.status, 200)
       const body = save.body as { path?: unknown; overlay?: { version?: unknown; roles?: Record<string, unknown> }; potetoDefault?: unknown }
       assert.equal(typeof body.path, 'string')
       assert.equal(body.overlay?.version, 1)
       assert.deepEqual(body.overlay?.roles?.['feature, refactoring'], { inherit: true, routes: [] })
-      assert.equal(body.potetoDefault, true)
+      const defaults = await request(handler(), 'PUT', { potetoDefault: true })
+      assert.equal(defaults.status, 200)
+      assert.deepEqual(defaults.body, { potetoDefault: true })
       assert.match(await readFile(join(home, DEFAULT_SETTINGS_FILENAME), 'utf8'), /"potetoDefault": true/)
       const snapshot = await request(handler(), 'GET')
       assert.equal(snapshot.status, 200)

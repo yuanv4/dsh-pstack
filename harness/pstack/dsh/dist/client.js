@@ -287,8 +287,11 @@ async function jsonRequest(path, method, body, signal) {
 function loadSettingsSnapshot(signal) {
   return jsonRequest(SETTINGS_SNAPSHOT_PATH, "GET", void 0, signal);
 }
-function saveSettingsOverlay(overlay, potetoDefault) {
-  return jsonRequest(SETTINGS_SAVE_PATH, "PUT", { overlay, potetoDefault });
+function saveSettingsOverlay(overlay) {
+  return jsonRequest(SETTINGS_SAVE_PATH, "PUT", { overlay });
+}
+function saveSettingsDefault(potetoDefault) {
+  return jsonRequest(SETTINGS_SAVE_PATH, "PUT", { potetoDefault });
 }
 function readPotetoState(sessionId, signal) {
   return jsonRequest(`${POTETO_STATE_PATH}?session=${encodeURIComponent(sessionId)}`, "GET", void 0, signal);
@@ -578,7 +581,9 @@ function PstackSettings({ t, subscribeCatalogChanges }) {
     };
   }, [refresh, subscribeCatalogChanges]);
   const currentOverlay = (0, import_react2.useMemo)(() => drafts === void 0 ? void 0 : draftToOverlay(drafts), [drafts]);
-  const dirty = saved !== void 0 && currentOverlay !== void 0 && !overlaysEqual(saved, currentOverlay) || savedDefault !== void 0 && draftDefault !== void 0 && savedDefault !== draftDefault;
+  const rolesDirty = saved !== void 0 && currentOverlay !== void 0 && !overlaysEqual(saved, currentOverlay);
+  const defaultDirty = savedDefault !== void 0 && draftDefault !== void 0 && savedDefault !== draftDefault;
+  const dirty = rolesDirty || defaultDirty;
   const empty = live.length === 0;
   const configured = drafts === void 0 ? 0 : drafts.filter((draft) => VISIBLE_ROLES.includes(draft.role) && !draft.inherit && draft.routes.length > 0).length;
   const total = VISIBLE_ROLES.length;
@@ -612,21 +617,35 @@ function PstackSettings({ t, subscribeCatalogChanges }) {
     setBusy(true);
     setNotice(void 0);
     setError(void 0);
-    try {
-      const result = await saveSettingsOverlay(currentOverlay, draftDefault);
-      setSaved(result.overlay);
-      setDrafts(overlayToDraft(result.overlay));
-      setSavedDefault(result.potetoDefault);
-      setDraftDefault(result.potetoDefault);
-      setDropped([]);
-      setError(void 0);
-      setNotice(t("saved"));
-    } catch (caught) {
-      setNotice(void 0);
-      setError(caught instanceof Error ? caught.message : t("requestFailed"));
-    } finally {
-      setBusy(false);
+    const failures = [];
+    let savedAny = false;
+    if (rolesDirty) {
+      try {
+        const result = await saveSettingsOverlay(currentOverlay);
+        setSaved(result.overlay);
+        setDrafts(overlayToDraft(result.overlay));
+        setDropped([]);
+        savedAny = true;
+      } catch (caught) {
+        failures.push(`${t("title")}: ${caught instanceof Error ? caught.message : t("requestFailed")}`);
+      }
     }
+    if (defaultDirty) {
+      try {
+        const result = await saveSettingsDefault(draftDefault);
+        setSavedDefault(result.potetoDefault);
+        setDraftDefault(result.potetoDefault);
+        savedAny = true;
+      } catch (caught) {
+        failures.push(`${t("defaultsTitle")}: ${caught instanceof Error ? caught.message : t("requestFailed")}`);
+      }
+    }
+    if (failures.length > 0) {
+      setError([...savedAny ? [t("partiallySaved")] : [], ...failures].join("\n"));
+    } else {
+      setNotice(t("saved"));
+    }
+    setBusy(false);
   };
   const discard = () => {
     if (saved === void 0) return;
@@ -970,7 +989,8 @@ var en = {
   removeRoute: "Remove route",
   save: "Save",
   saving: "Saving\u2026",
-  saved: "Saved. New child agents use this mapping.",
+  saved: "Changes saved.",
+  partiallySaved: "Some changes were saved. Failed changes remain unsaved.",
   reload: "Refresh",
   reloading: "Refreshing\u2026",
   catalogUpdates: "The list follows DSH model changes and keeps unsaved edits.",
@@ -1022,7 +1042,8 @@ var zh = {
   removeRoute: "\u79FB\u9664\u8DEF\u7531",
   save: "\u4FDD\u5B58",
   saving: "\u4FDD\u5B58\u4E2D\u2026",
-  saved: "\u5DF2\u4FDD\u5B58\u3002\u65B0\u542F\u52A8\u7684\u5B50 agent \u4F1A\u4F7F\u7528\u8FD9\u4EFD\u6620\u5C04\u3002",
+  saved: "\u66F4\u6539\u5DF2\u4FDD\u5B58\u3002",
+  partiallySaved: "\u90E8\u5206\u66F4\u6539\u5DF2\u4FDD\u5B58\u3002\u5931\u8D25\u7684\u9879\u76EE\u4ECD\u672A\u4FDD\u5B58\uFF0C\u53EF\u91CD\u8BD5\u6216\u8FD8\u539F\u3002",
   reload: "\u5237\u65B0",
   reloading: "\u5237\u65B0\u4E2D\u2026",
   catalogUpdates: "\u5217\u8868\u968F DSH \u6A21\u578B\u53D8\u5316\u81EA\u52A8\u66F4\u65B0\uFF0C\u4E0D\u4F1A\u8986\u76D6\u672A\u4FDD\u5B58\u7684\u4FEE\u6539\u3002",

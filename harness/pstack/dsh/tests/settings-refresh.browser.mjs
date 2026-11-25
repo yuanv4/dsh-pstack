@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { emptyOverlay } from '../src/overlay-model.ts'
 
 const { launchPinnedChromium } = await import(pathToFileURL(join(homedir(), '.codex/playwright-runtime/runtime.mjs')).href)
 const candidate = process.argv[2] === undefined ? undefined : await readFile(resolve(process.argv[2]), 'utf8')
@@ -19,11 +20,16 @@ let routes = [base]
 let requests = 0
 let eventSeq = 0
 let holdNext
+let storedOverlay = emptyOverlay()
+let storedDefault = false
+let failDefault = false
+let failOverlay = false
+const writes = []
 const snapshot = () => ({
   catalog: {
     routes, overlayPath: '(test-only)', overlayMissing: true, inheritParent: true,
   },
-  overlay: { version: 1, roles: {} }, path: '(test-only)', missing: true, droppedRoles: [], potetoDefault: false,
+  overlay: storedOverlay, path: '(test-only)', missing: true, droppedRoles: [], potetoDefault: storedDefault,
 })
 
 const browser = await launchPinnedChromium()
@@ -52,7 +58,23 @@ try {
     }
   })
   await page.route(`${origin}/plugins/pstack-dsh/settings`, async route => {
-    assert.equal(route.request().method(), 'GET', 'This test must not write settings')
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON()
+      writes.push(body)
+      assert.equal(Object.keys(body).length, 1, 'Each request saves one setting')
+      const failed = 'overlay' in body ? failOverlay : failDefault
+      if (failed) {
+        await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'fixture write failure' }) })
+      } else {
+        if ('overlay' in body) storedOverlay = body.overlay
+        else storedDefault = body.potetoDefault
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(
+          'overlay' in body ? { path: '(test-only)', overlay: storedOverlay } : { potetoDefault: storedDefault },
+        ) })
+      }
+      return
+    }
+    assert.equal(route.request().method(), 'GET')
     requests += 1
     const body = JSON.stringify(snapshot())
     if (holdNext !== undefined) {
@@ -155,11 +177,47 @@ try {
   assert.equal(await page.locator('#pstack-effort-feature-refactoring').count(), 0)
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isDisabled(), true)
   assert.deepEqual(errors, [])
+  const save = page.getByRole('button', { name: '保存', exact: true })
+  const discard = page.getByRole('button', { name: '还原', exact: true })
+  const defaultToggle = page.getByRole('switch', { name: '新会话默认启用 poteto 工作流', exact: true })
+  await defaultToggle.click()
+  await save.click()
+  await page.waitForFunction(() => document.querySelector('.pstack-banner--ok') !== null)
+  assert.deepEqual(writes.splice(0), [{ potetoDefault: true }], 'Default-only save never sends roles')
+  assert.equal(await save.isDisabled(), true)
+
+  await feature.selectOption('deepseek-official::fixture-base')
+  await defaultToggle.click()
+  failDefault = true
+  await save.click()
+  await page.waitForFunction(() => document.querySelector('.pstack-banner--error')?.textContent.includes('部分更改已保存'))
+  assert.equal(writes.length, 2)
+  assert.equal(storedDefault, true)
+  assert.equal(storedOverlay.roles['feature, refactoring'].routes[0].model, 'fixture-base')
+  assert.equal(await save.isEnabled(), true)
+  writes.length = 0
+  failDefault = false
+  await save.click()
+  await page.waitForFunction(() => document.querySelector('.pstack-banner--ok') !== null)
+  assert.deepEqual(writes.splice(0), [{ potetoDefault: false }], 'Retry saves only the failed setting')
+
+  await feature.selectOption('pi-zai-coding-cn::glm-5.3-flash')
+  await defaultToggle.click()
+  failOverlay = true
+  await save.click()
+  await page.waitForFunction(() => document.querySelector('.pstack-banner--error')?.textContent.includes('部分更改已保存'))
+  assert.equal(storedDefault, true)
+  assert.equal(storedOverlay.roles['feature, refactoring'].routes[0].model, 'fixture-base')
+  await discard.click()
+  assert.equal(await feature.inputValue(), 'deepseek-official::fixture-base')
+  assert.equal(await defaultToggle.getAttribute('aria-checked'), 'true', 'Discard retains the saved default')
+  assert.equal(await save.isDisabled(), true)
+  assert.deepEqual(errors, [])
   console.log(JSON.stringify({
     url: origin, candidate: candidate !== undefined, simulatedHostNotifications: true,
     automaticModelUpdate: true, stagedEditsDroppedOnLeave: true,
     logoutChoiceMarked: true, staleResponseIgnored: true, unsubscribedOnLeave: true,
-    writes: 0,
+    defaultOnlySave: true, partialSaveRetry: true, partialSaveDiscard: true, hostWrites: 0,
   }, null, 2))
 } finally {
   await browser.close()

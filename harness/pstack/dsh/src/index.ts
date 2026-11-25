@@ -71,7 +71,7 @@ export function apply(ctx: Context, config?: PluginConfig): void {
   const poteto = registerPotetoMode(ctx, { onChanged: () => { invalidateSkillCatalog() } })
   ctx.skills.registerProvider(control => {
     invalidateSkillCatalog = control.invalidate
-    return createSkillProvider(undefined, createPotetoSkillGate(ctx))
+    return createSkillProvider(undefined, createPotetoSkillGate(poteto))
   })
   ctx.inject(['webServer', 'connection'], webCtx => {
     registerPstackSettingsRoutes(webCtx, host)

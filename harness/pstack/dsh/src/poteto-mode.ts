@@ -43,6 +43,7 @@ export interface PotetoState {
 
 export interface PotetoSwitch {
   read(sessionId: string): PotetoState
+  isEnabled(sessionId: string): boolean
   setEnabled(sessionId: string, enabled: boolean): Promise<PotetoState>
   /** Reapply the tool surface, prompt section, and skill availability for a live agent. */
   sync(sessionId: string): void
@@ -132,10 +133,10 @@ function isSessionEnabled(ctx: Context, sessions: ReadonlySet<string>, sessionId
  * A lookup with no agent scope has no session switch to consult, so it keeps the
  * authored policy.
  */
-export function createPotetoSkillGate(ctx: Context): (scope: unknown) => boolean {
+export function createPotetoSkillGate(poteto: Pick<PotetoSwitch, 'isEnabled'>): (scope: unknown) => boolean {
   return (scope) => {
     const sessionId = sessionIdOfScope(scope)
-    return sessionId === undefined || isSessionEnabled(ctx, readModes(), sessionId)
+    return sessionId === undefined || poteto.isEnabled(sessionId)
   }
 }
 
@@ -315,7 +316,12 @@ export function registerPotetoMode(ctx: Context, hooks: PotetoModeHooks = {}): P
     return stateOf(sessionId)
   }
 
-  const switchApi: PotetoSwitch = { read: stateOf, setEnabled, sync }
+  const switchApi: PotetoSwitch = {
+    read: stateOf,
+    isEnabled: sessionId => isSessionEnabled(ctx, modes, sessionId),
+    setEnabled,
+    sync,
+  }
 
   /**
    * Start a brand-new session in the saved default state.

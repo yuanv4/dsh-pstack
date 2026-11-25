@@ -30,7 +30,7 @@ The [DSH platform map](harness/pstack/dsh/generated/docs/harness/dsh.md) lists r
 
 The plugin is inert in a session until you turn it on. The control is the **poteto workflow** row in the model menu, next to **Enable Agent Teams**; there is no command and no skill entry point. The choice is stored per session in `$DSH_HOME/pstack-poteto.json` and restored on the next start; if the Web client is unavailable, add or remove the session id there and restart DSH.
 
-To start every new session with the workflow already on, open **插件 → pstack-dsh** and turn on **新会话默认启用 poteto 工作流** on that page, then save. The default is stored in `$DSH_HOME/pstack-settings.json`; it applies to sessions created after you save and never changes a session that is already open. The model-menu row still turns an individual session off again.
+To start every new session with the workflow already on, open **插件 → pstack-dsh** and turn on **新会话默认启用 poteto 工作流** on that page, then save. The default is stored in `$DSH_HOME/pstack-settings.json`; it applies to sessions created after you save and never changes a session that is already open. The model-menu row still turns an individual session off again. Saving the default leaves role mappings unchanged. When you edit both, the page saves each setting separately. If one save fails, the page keeps the successful change and lets you retry or discard the failed change.
 
 While the switch is on, the session gets the whole workflow:
 

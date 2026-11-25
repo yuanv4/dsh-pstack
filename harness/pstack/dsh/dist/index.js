@@ -763,10 +763,10 @@ function isSessionEnabled(ctx, sessions, sessionId) {
   }
   return false;
 }
-function createPotetoSkillGate(ctx) {
+function createPotetoSkillGate(poteto) {
   return (scope) => {
     const sessionId = sessionIdOfScope(scope);
-    return sessionId === void 0 || isSessionEnabled(ctx, readModes(), sessionId);
+    return sessionId === void 0 || poteto.isEnabled(sessionId);
   };
 }
 var sessionIdOf = (agent) => String(agent.session.id);
@@ -866,7 +866,12 @@ function registerPotetoMode(ctx, hooks = {}) {
     hooks.onChanged?.();
     return stateOf(sessionId);
   };
-  const switchApi = { read: stateOf, setEnabled, sync };
+  const switchApi = {
+    read: stateOf,
+    isEnabled: (sessionId) => isSessionEnabled(ctx, modes, sessionId),
+    setEnabled,
+    sync
+  };
   const applyDefault = (agent) => {
     if (!isRootAgent(agent) || !readPotetoDefault()) return void 0;
     const sessionId = sessionIdOf(agent);
@@ -1028,11 +1033,17 @@ function isRecord3(value) {
 function overlayOf(raw) {
   return isRecord3(raw) && "overlay" in raw ? raw.overlay : raw;
 }
-function defaultOf(raw) {
-  if (!isRecord3(raw) || !("potetoDefault" in raw)) return void 0;
-  const value = raw.potetoDefault;
-  if (typeof value !== "boolean") throw new Error("potetoDefault must be a boolean");
-  return value;
+async function saveSettings(host, raw) {
+  if (isRecord3(raw) && "potetoDefault" in raw) {
+    if (Object.keys(raw).some((key) => key !== "potetoDefault")) {
+      throw new Error("save the overlay and potetoDefault in separate requests");
+    }
+    if (typeof raw.potetoDefault !== "boolean") throw new Error("potetoDefault must be a boolean");
+    const dshHome = host.dshHome ?? resolveDshHome(host.env);
+    await writePotetoDefault(raw.potetoDefault, dshHome);
+    return { potetoDefault: raw.potetoDefault };
+  }
+  return saveSettingsOverlay(host, raw);
 }
 async function loadSettingsSnapshot(host) {
   const dshHome = host.dshHome ?? resolveDshHome(host.env);
@@ -1053,7 +1064,6 @@ async function saveSettingsOverlay(host, raw) {
   const overlayRaw = overlayOf(raw);
   if (overlayRaw === void 0) throw new Error("overlay is required");
   const overlay = typeof overlayRaw === "string" ? parseOverlay(overlayRaw) : parseOverlay(JSON.stringify(overlayRaw));
-  const requestedDefault = defaultOf(raw);
   const catalog = await buildCatalog({ ...host, dshHome });
   const errors = validateOverlayAgainstCatalog(overlay, catalog.routes);
   if (errors.length > 0) {
@@ -1063,11 +1073,7 @@ ${errors.join("\n")}`);
     throw error;
   }
   const path = await writeOverlay(overlay, dshHome);
-  if (requestedDefault === void 0) {
-    return { path, overlay, potetoDefault: readPotetoDefault(dshHome) };
-  }
-  await writePotetoDefault(requestedDefault, dshHome);
-  return { path, overlay, potetoDefault: requestedDefault };
+  return { path, overlay };
 }
 
 // harness/pstack/dsh/src/settings-routes.ts
@@ -1085,7 +1091,7 @@ async function handleSave(host, req, res) {
   }
   try {
     const body = await readJson(req);
-    const saved = await saveSettingsOverlay(host, body);
+    const saved = await saveSettings(host, body);
     json(res, 200, saved);
   } catch (error) {
     const message = error instanceof Error ? error.message : "save failed";
@@ -1171,7 +1177,7 @@ function apply(ctx, config) {
   } });
   ctx.skills.registerProvider((control) => {
     invalidateSkillCatalog = control.invalidate;
-    return createSkillProvider(void 0, createPotetoSkillGate(ctx));
+    return createSkillProvider(void 0, createPotetoSkillGate(poteto));
   });
   ctx.inject(["webServer", "connection"], (webCtx) => {
     registerPstackSettingsRoutes(webCtx, host);

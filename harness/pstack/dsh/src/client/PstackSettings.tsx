@@ -23,7 +23,7 @@ import {
   type RoleDraft,
 } from '../settings-draft.ts'
 import { PANEL_ROLES, type PstackRole } from '../roles.ts'
-import { loadSettingsSnapshot, saveSettingsOverlay } from './api.ts'
+import { loadSettingsSnapshot, saveSettingsDefault, saveSettingsOverlay } from './api.ts'
 import type { PstackSettingsKey } from './locales.ts'
 
 export interface PstackSettingsInjected {
@@ -368,8 +368,9 @@ export function PstackSettings({ t, subscribeCatalogChanges }: PstackSettingsPro
   }, [refresh, subscribeCatalogChanges])
 
   const currentOverlay = useMemo(() => drafts === undefined ? undefined : draftToOverlay(drafts), [drafts])
-  const dirty = (saved !== undefined && currentOverlay !== undefined && !overlaysEqual(saved, currentOverlay))
-    || (savedDefault !== undefined && draftDefault !== undefined && savedDefault !== draftDefault)
+  const rolesDirty = saved !== undefined && currentOverlay !== undefined && !overlaysEqual(saved, currentOverlay)
+  const defaultDirty = savedDefault !== undefined && draftDefault !== undefined && savedDefault !== draftDefault
+  const dirty = rolesDirty || defaultDirty
   const empty = live.length === 0
   const configured = drafts === undefined
     ? 0
@@ -409,21 +410,35 @@ export function PstackSettings({ t, subscribeCatalogChanges }: PstackSettingsPro
     setBusy(true)
     setNotice(undefined)
     setError(undefined)
-    try {
-      const result = await saveSettingsOverlay(currentOverlay, draftDefault)
-      setSaved(result.overlay)
-      setDrafts(overlayToDraft(result.overlay))
-      setSavedDefault(result.potetoDefault)
-      setDraftDefault(result.potetoDefault)
-      setDropped([])
-      setError(undefined)
-      setNotice(t('saved'))
-    } catch (caught: unknown) {
-      setNotice(undefined)
-      setError(caught instanceof Error ? caught.message : t('requestFailed'))
-    } finally {
-      setBusy(false)
+    const failures: string[] = []
+    let savedAny = false
+    if (rolesDirty) {
+      try {
+        const result = await saveSettingsOverlay(currentOverlay)
+        setSaved(result.overlay)
+        setDrafts(overlayToDraft(result.overlay))
+        setDropped([])
+        savedAny = true
+      } catch (caught: unknown) {
+        failures.push(`${t('title')}: ${caught instanceof Error ? caught.message : t('requestFailed')}`)
+      }
     }
+    if (defaultDirty) {
+      try {
+        const result = await saveSettingsDefault(draftDefault)
+        setSavedDefault(result.potetoDefault)
+        setDraftDefault(result.potetoDefault)
+        savedAny = true
+      } catch (caught: unknown) {
+        failures.push(`${t('defaultsTitle')}: ${caught instanceof Error ? caught.message : t('requestFailed')}`)
+      }
+    }
+    if (failures.length > 0) {
+      setError([...(savedAny ? [t('partiallySaved')] : []), ...failures].join('\n'))
+    } else {
+      setNotice(t('saved'))
+    }
+    setBusy(false)
   }
 
   const discard = (): void => {

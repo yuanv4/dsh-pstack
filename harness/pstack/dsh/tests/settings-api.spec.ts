@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { loadSettingsSnapshot, saveSettingsOverlay } from '../src/settings-api.ts'
+import { loadSettingsSnapshot, saveSettings, saveSettingsOverlay } from '../src/settings-api.ts'
 import { draftToOverlay, overlayToDraft } from '../src/settings-draft.ts'
 import { parseOverlay } from '../src/overlay-model.ts'
 import { OVERLAY_FILENAME } from '../src/ids.ts'
@@ -64,32 +64,57 @@ describe('settings snapshot/save', () => {
     assert.equal(snapshot.missing, false)
   })
 
-  it('saves the new-session default beside the overlay and keeps it on an older client save', async () => {
+  it('saves the default without querying models or rewriting saved roles', async () => {
     const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-settings-default-'))
-    const host = {
-      dshHome: home,
-      env: {},
-      llm: llmStub(),
+    try {
+      const host = { dshHome: home, env: {}, llm: llmStub() }
+      assert.equal((await loadSettingsSnapshot(host)).potetoDefault, false)
+      const roles = await saveSettingsOverlay(host, {
+        version: 1,
+        roles: { 'bug-fix': { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] } },
+      })
+      const original = await readFile(roles.path, 'utf8')
+      const offline = {
+        ...host,
+        llm: { ...host.llm, async listModels(): Promise<never> { throw new Error('provider unavailable') } },
+      }
+      assert.deepEqual((await loadSettingsSnapshot(offline)).droppedRoles, ['bug-fix'])
+      const unavailable = { ...offline, llm: { ...offline.llm, listProviders(): never { throw new Error('must not query models') } } }
+      assert.deepEqual(await saveSettings(unavailable, { potetoDefault: true }), { potetoDefault: true })
+      assert.equal(await readFile(roles.path, 'utf8'), original)
+      assert.deepEqual(JSON.parse(await readFile(join(home, DEFAULT_SETTINGS_FILENAME), 'utf8')), {
+        version: 1, potetoDefault: true,
+      })
+      await saveSettings(host, { overlay: roles.overlay })
+      assert.equal((await loadSettingsSnapshot(host)).potetoDefault, true)
+      await assert.rejects(() => saveSettings(host, { potetoDefault: 'yes' }), /potetoDefault must be a boolean/)
+    } finally {
+      await rm(home, { recursive: true, force: true })
     }
-    assert.equal((await loadSettingsSnapshot(host)).potetoDefault, false)
-    const saved = await saveSettingsOverlay(host, {
-      overlay: { version: 1, roles: {} },
-      potetoDefault: true,
-    })
-    assert.equal(saved.potetoDefault, true)
-    assert.equal((await loadSettingsSnapshot(host)).potetoDefault, true)
-    assert.deepEqual(
-      JSON.parse(await readFile(join(home, DEFAULT_SETTINGS_FILENAME), 'utf8')),
-      { version: 1, potetoDefault: true },
-    )
-    // A client that predates the switch sends only the overlay and must not reset it.
-    const legacy = await saveSettingsOverlay(host, { version: 1, roles: {} })
-    assert.equal(legacy.potetoDefault, true)
-    assert.equal((await loadSettingsSnapshot(host)).potetoDefault, true)
-    await assert.rejects(
-      () => saveSettingsOverlay(host, { overlay: { version: 1, roles: {} }, potetoDefault: 'yes' }),
-      /potetoDefault must be a boolean/,
-    )
+  })
+
+  it('rejects combined saves before writing either setting and isolates write failures', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'pstack-dsh-settings-failure-'))
+    try {
+      const host = { dshHome: home, env: {}, llm: llmStub() }
+      const initial = await saveSettingsOverlay(host, {
+        version: 1,
+        roles: { 'bug-fix': { inherit: false, routes: [{ provider: 'deepseek-official', model: 'deepseek-chat' }] } },
+      })
+      const original = await readFile(initial.path, 'utf8')
+      await assert.rejects(() => saveSettings(host, {
+        overlay: { version: 1, roles: {} }, potetoDefault: true,
+      }), /separate requests/)
+      assert.equal(await readFile(initial.path, 'utf8'), original)
+      await assert.rejects(readFile(join(home, DEFAULT_SETTINGS_FILENAME)), { code: 'ENOENT' })
+      await mkdir(join(home, DEFAULT_SETTINGS_FILENAME))
+      await assert.rejects(() => saveSettings(host, { potetoDefault: true }))
+      assert.equal(await readFile(initial.path, 'utf8'), original)
+      await saveSettings(host, { overlay: { version: 1, roles: {} } })
+      assert.equal(parseOverlay(await readFile(initial.path, 'utf8')).roles['bug-fix']?.inherit, true)
+    } finally {
+      await rm(home, { recursive: true, force: true })
+    }
   })
 
   it('keeps user effort and stale legacy critics on disk through Settings load and draft save', async () => {

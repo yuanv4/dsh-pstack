@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-connection'
 import type { CatalogHost } from './catalog.ts'
 import { SETTINGS_SNAPSHOT_PATH } from './ids.ts'
 import { json, readJson, trustedRequest } from './http-trust.ts'
-import { loadSettingsSnapshot, saveSettingsOverlay } from './settings-api.ts'
+import { loadSettingsSnapshot, saveSettings } from './settings-api.ts'
 
 async function handleSnapshot(host: CatalogHost, req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'GET') {
@@ -23,7 +23,7 @@ async function handleSave(host: CatalogHost, req: IncomingMessage, res: ServerRe
   }
   try {
     const body = await readJson(req)
-    const saved = await saveSettingsOverlay(host, body)
+    const saved = await saveSettings(host, body)
     json(res, 200, saved)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'save failed'

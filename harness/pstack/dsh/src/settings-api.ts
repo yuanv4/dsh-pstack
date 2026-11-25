@@ -25,7 +25,6 @@ export interface SettingsSnapshot {
 export interface SettingsSaveResult {
   path: string
   overlay: Overlay
-  potetoDefault: boolean
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,12 +36,17 @@ function overlayOf(raw: unknown): unknown {
   return isRecord(raw) && 'overlay' in raw ? raw.overlay : raw
 }
 
-/** The requested default, or undefined when the body keeps the saved one. */
-function defaultOf(raw: unknown): boolean | undefined {
-  if (!isRecord(raw) || !('potetoDefault' in raw)) return undefined
-  const value = raw.potetoDefault
-  if (typeof value !== 'boolean') throw new Error('potetoDefault must be a boolean')
-  return value
+export async function saveSettings(host: CatalogHost, raw: unknown): Promise<SettingsSaveResult | { potetoDefault: boolean }> {
+  if (isRecord(raw) && 'potetoDefault' in raw) {
+    if (Object.keys(raw).some(key => key !== 'potetoDefault')) {
+      throw new Error('save the overlay and potetoDefault in separate requests')
+    }
+    if (typeof raw.potetoDefault !== 'boolean') throw new Error('potetoDefault must be a boolean')
+    const dshHome = host.dshHome ?? resolveDshHome(host.env)
+    await writePotetoDefault(raw.potetoDefault, dshHome)
+    return { potetoDefault: raw.potetoDefault }
+  }
+  return saveSettingsOverlay(host, raw)
 }
 
 export async function loadSettingsSnapshot(host: CatalogHost): Promise<SettingsSnapshot> {
@@ -65,7 +69,6 @@ export async function saveSettingsOverlay(host: CatalogHost, raw: unknown): Prom
   const overlayRaw = overlayOf(raw)
   if (overlayRaw === undefined) throw new Error('overlay is required')
   const overlay = typeof overlayRaw === 'string' ? parseOverlay(overlayRaw) : parseOverlay(JSON.stringify(overlayRaw))
-  const requestedDefault = defaultOf(raw)
   const catalog = await buildCatalog({ ...host, dshHome })
   const errors = validateOverlayAgainstCatalog(overlay, catalog.routes)
   if (errors.length > 0) {
@@ -74,9 +77,5 @@ export async function saveSettingsOverlay(host: CatalogHost, raw: unknown): Prom
     throw error
   }
   const path = await writeOverlay(overlay, dshHome)
-  if (requestedDefault === undefined) {
-    return { path, overlay, potetoDefault: readPotetoDefault(dshHome) }
-  }
-  await writePotetoDefault(requestedDefault, dshHome)
-  return { path, overlay, potetoDefault: requestedDefault }
+  return { path, overlay }
 }

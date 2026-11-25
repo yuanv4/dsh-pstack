@@ -15,7 +15,6 @@ export interface SettingsSnapshot {
 export interface SettingsSaveResult {
   path: string
   overlay: Overlay
-  potetoDefault: boolean
 }
 
 type CatalogEvent = 'llm/adapters-updated' | 'llm/models-updated' | 'settings/document-updated' | 'credentials/reference-updated'
@@ -60,8 +59,12 @@ export function loadSettingsSnapshot(signal?: AbortSignal): Promise<SettingsSnap
   return jsonRequest<SettingsSnapshot>(SETTINGS_SNAPSHOT_PATH, 'GET', undefined, signal)
 }
 
-export function saveSettingsOverlay(overlay: Overlay, potetoDefault: boolean): Promise<SettingsSaveResult> {
-  return jsonRequest<SettingsSaveResult>(SETTINGS_SAVE_PATH, 'PUT', { overlay, potetoDefault })
+export function saveSettingsOverlay(overlay: Overlay): Promise<SettingsSaveResult> {
+  return jsonRequest<SettingsSaveResult>(SETTINGS_SAVE_PATH, 'PUT', { overlay })
+}
+
+export function saveSettingsDefault(potetoDefault: boolean): Promise<{ potetoDefault: boolean }> {
+  return jsonRequest<{ potetoDefault: boolean }>(SETTINGS_SAVE_PATH, 'PUT', { potetoDefault })
 }
 
 export interface PotetoState {
