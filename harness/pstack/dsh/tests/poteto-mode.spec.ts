@@ -306,6 +306,68 @@ describe('poteto switch', () => {
     assert.deepEqual([...readModes()], ['session-a', 'session-b'])
   })
 
+  it('returns each committed state when the same session is switched on and off concurrently', async () => {
+    await writeModes(new Set())
+    const test = harness()
+    const api = registerPotetoMode(test.ctx)
+    const [on, off] = await Promise.all([
+      api.setEnabled('session-root', true),
+      api.setEnabled('session-root', false),
+    ])
+    assert.deepEqual(on, { enabled: true, denied: [...NATIVE_DELEGATION_TOOLS] })
+    assert.deepEqual(off, { enabled: false, denied: [...PSTACK_TOOLS] })
+    assert.deepEqual([...readModes()], [])
+  })
+
+  for (const initial of [true, false]) {
+    it(`preserves the ${initial ? 'on' : 'off'} state when a manual switch cannot be persisted`, async () => {
+      const saved = new Set(initial ? ['session-root'] : [])
+      await writeModes(saved)
+      const test = harness()
+      const child = delegate('session-child', 'session-root')
+      const grandchild = delegate('session-grandchild', 'session-child')
+      test.agents.push(child.agent, grandchild.agent)
+      let changed = 0
+      const api = registerPotetoMode(test.ctx, { onChanged: () => { changed += 1 } })
+      const gate = createPotetoSkillGate(api)
+      const before = api.read('session-root')
+      await rm(modePath(), { force: true })
+      await mkdir(modePath())
+      let observed: {
+        state: ReturnType<typeof api.read>
+        gates: boolean[]
+        rootTools: unknown[]
+        childTools: unknown[]
+        sections: string[]
+        changed: number
+      }
+      try {
+        await assert.rejects(api.setEnabled('session-root', !initial))
+        observed = {
+          state: api.read('session-root'),
+          gates: [gate(test.agent), gate(child.agent), gate(grandchild.agent)],
+          rootTools: [test.tools.get(PSTACK_TOOLS[0], test.agent), test.tools.get('subagent', test.agent)],
+          childTools: [child.tools.get(PSTACK_TOOLS[0], child.agent), child.tools.get('subagent', child.agent)],
+          sections: [...test.sections],
+          changed,
+        }
+      } finally {
+        await rm(modePath(), { recursive: true, force: true })
+        await writeModes(saved)
+      }
+      const retry = await api.setEnabled('session-root', !initial)
+      assert.equal(retry.enabled, !initial)
+      assert.deepEqual([...readModes()], initial ? [] : ['session-root'])
+      assert.deepEqual(observed.state, before)
+      assert.deepEqual(observed.gates, [initial, initial, initial])
+      assert.deepEqual(observed.rootTools, initial ? [{ name: PSTACK_TOOLS[0] }, undefined] : [undefined, { name: 'subagent' }])
+      assert.deepEqual(observed.childTools, initial ? [{ name: PSTACK_TOOLS[0] }, { name: 'subagent' }] : [undefined, { name: 'subagent' }])
+      assert.deepEqual(observed.sections, initial ? [potetoSkillText()] : [])
+      assert.equal(observed.changed, 0)
+      assert.equal(changed, 1)
+    })
+  }
+
   it('keeps session creation working when the default cannot be persisted', async () => {
     await writePotetoDefault(true)
     // A directory where the mode file goes makes every write fail, while the
