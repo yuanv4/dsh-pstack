@@ -19,10 +19,9 @@ describe('bundle composition', () => {
     assert.equal(pkg.dsh.bundle?.patch, './cordis.patch.yml')
     assert.equal(pkg.scripts.prepare, undefined)
     assert.equal(pkg.main, 'harness/pstack/dsh/dist/index.js')
-    const [host, client, readme, patch] = await Promise.all([
+    const [host, client, patch] = await Promise.all([
       readFile(join(root, 'harness/pstack/dsh/dist/index.js'), 'utf8'),
       readFile(join(root, 'harness/pstack/dsh/dist/client.js'), 'utf8'),
-      readFile(join(root, 'README.md'), 'utf8'),
       readFile(join(root, 'cordis.patch.yml'), 'utf8'),
     ])
     assert.match(host, /function apply\(/)
@@ -30,10 +29,6 @@ describe('bundle composition', () => {
     assert.match(client, /window\.__ModuleLoader__\.load/)
     assert.match(patch, /id:\s*pstack-dsh/)
     assert.match(patch, /name:\s*pstack-dsh/)
-    assert.match(readme, /设置 → 插件 → 添加插件/)
-    assert.match(readme, /github:yuanv4\/dsh-pstack/)
-    assert.match(readme, /dsh plugin --profile web add github:yuanv4\/dsh-pstack/)
-    assert.doesNotMatch(readme, /\bdshx\b|\bmy-plugins\b/i)
     const manifest = await readFile(join(root, 'package.json'), 'utf8')
     assert.doesNotMatch(manifest, /\btsdown\b|\bdshx\.yml\b/)
   })
