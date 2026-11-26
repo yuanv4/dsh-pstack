@@ -1,5 +1,5 @@
 /**
- * pstack-dsh: DeepSeek Harness port of official pstack.
+ * dsh-pstack: DeepSeek Harness port of official pstack.
  * Function/namespace plugin: named apply, no default export.
  */
 
@@ -57,7 +57,7 @@ function registerOne(ctx: Context, tool: ReturnType<typeof catalogTool>): void {
 }
 
 export function apply(ctx: Context, config?: PluginConfig): void {
-  console.log('[my-plugins/pstack-dsh] loaded')
+  console.log('[my-plugins/dsh-pstack] loaded')
   const host = asHost(ctx, config)
   registerOne(ctx, catalogTool(host))
   registerOne(ctx, overlayReadTool(host))

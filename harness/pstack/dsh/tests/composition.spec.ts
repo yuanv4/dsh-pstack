@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { OVERLAY_FILENAME, PLUGIN_ID, POTETO_STATE_PATH, SETTINGS_SAVE_PATH, SETTINGS_SNAPSHOT_PATH, SKILL_PROVIDER_NAME } from '../src/ids.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
@@ -15,7 +16,7 @@ describe('bundle composition', () => {
       scripts: Record<string, string>
       dsh: { bundle?: { patch?: string }; client: { platform: string; inject: string[] } }
     }
-    assert.equal(pkg.name, 'pstack-dsh')
+    assert.equal(pkg.name, 'dsh-pstack')
     assert.equal(pkg.dsh.bundle?.patch, './cordis.patch.yml')
     assert.equal(pkg.scripts.prepare, undefined)
     assert.equal(pkg.main, 'harness/pstack/dsh/dist/index.js')
@@ -26,9 +27,15 @@ describe('bundle composition', () => {
     ])
     assert.match(host, /function apply\(/)
     assert.match(host, /export \{[^}]*\bapply\b/)
-    assert.match(client, /window\.__ModuleLoader__\.load/)
-    assert.match(patch, /id:\s*pstack-dsh/)
-    assert.match(patch, /name:\s*pstack-dsh/)
+    assert.match(client, /window\.__ModuleLoader__\.load\(\{\s*id:\s*["']dsh-pstack["']/)
+    assert.equal(PLUGIN_ID, pkg.name)
+    assert.equal(SKILL_PROVIDER_NAME, pkg.name)
+    assert.equal(OVERLAY_FILENAME, 'pstack-dsh.json')
+    assert.equal(SETTINGS_SNAPSHOT_PATH, '/plugins/dsh-pstack/settings')
+    assert.equal(SETTINGS_SAVE_PATH, '/plugins/dsh-pstack/settings')
+    assert.equal(POTETO_STATE_PATH, '/plugins/dsh-pstack/poteto')
+    assert.match(patch, /id:\s*dsh-pstack/)
+    assert.match(patch, /name:\s*dsh-pstack/)
     const manifest = await readFile(join(root, 'package.json'), 'utf8')
     assert.doesNotMatch(manifest, /\btsdown\b|\bdshx\.yml\b/)
   })
@@ -39,7 +46,7 @@ describe('bundle composition', () => {
       exports: Record<string, unknown>
       dsh: { client: { platform: string; inject: string[] } }
     }
-    assert.equal(pkg.name, 'pstack-dsh')
+    assert.equal(pkg.name, 'dsh-pstack')
     assert.equal(pkg.exports['./client'], './harness/pstack/dsh/dist/client.js')
     assert.equal(pkg.dsh.client.platform, 'web')
     assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-plugin-manager'))

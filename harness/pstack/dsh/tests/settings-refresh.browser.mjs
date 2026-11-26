@@ -57,7 +57,7 @@ try {
       }
     }
   })
-  await page.route(`${origin}/plugins/pstack-dsh/settings`, async route => {
+  await page.route(`${origin}/plugins/dsh-pstack/settings`, async route => {
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON()
       writes.push(body)
@@ -85,7 +85,7 @@ try {
     await route.fulfill({ status: 200, contentType: 'application/json', body })
   })
   if (candidate !== undefined) {
-    await page.route(/\/plugins\/pstack-dsh\/client\.js(?:\?.*)?$/, route =>
+    await page.route(/\/plugins\/dsh-pstack\/client\.js(?:\?.*)?$/, route =>
       route.fulfill({ status: 200, contentType: 'application/javascript', body: candidate }))
   }
   const notify = async (event = 'llm/adapters-updated', args = []) => {
@@ -127,7 +127,7 @@ try {
   assert.equal(await page.getByRole('button', { name: '保存', exact: true }).isEnabled(), true)
 
   const beforeManual = requests
-  const manualResponse = page.waitForResponse(response => response.url() === `${origin}/plugins/pstack-dsh/settings`)
+  const manualResponse = page.waitForResponse(response => response.url() === `${origin}/plugins/dsh-pstack/settings`)
   // The page header carries its own 刷新, so this one is scoped to the form.
   await page.locator('.pstack-tools').getByRole('button', { name: '刷新', exact: true }).click()
   await manualResponse

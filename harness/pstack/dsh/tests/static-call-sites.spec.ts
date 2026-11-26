@@ -108,7 +108,10 @@ describe('skill call sites', () => {
   it('gives DSH setup and isolation guidance without Cursor mode instructions', async () => {
     const help = await readFile(join(SKILLS, 'poteto-help', 'SKILL.md'), 'utf8')
     assert.match(help, /github:yuanv4\/dsh-pstack/)
-    assert.match(help, /Plugins.*Configure/)
+    assert.match(help, /Plugins → dsh-pstack/)
+    const setup = await readFile(join(SKILLS, 'setup-pstack', 'SKILL.md'), 'utf8')
+    assert.match(setup, /embedded editor/)
+    assert.doesNotMatch(setup, /Click \*\*Configure\*\*/)
     assert.match(help, /DSH does not have Custom Modes/)
     assert.match(help, /parent.*worktree/i)
     assert.doesNotMatch(help, /\/add-plugin|Customize in the sidebar|Option\+Enter|Alt\+Enter|Use as Mode|cloud agents, which each get their own machine|spawn Cursor subagents/)

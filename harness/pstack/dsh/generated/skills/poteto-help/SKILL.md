@@ -28,17 +28,17 @@ Check the state that changes the answer, and mention it only when it does:
 - No `verify-*` skill or other app harness in the project means agents have no scripted way to drive the app. Mention `/create-verification-skill` when the question is about proving a change works.
 - No formal verification skill in the project means no property is checked past what tests reach. Mention `/create-formal-verification-skill` when the question is about a race, an invariant, or another case tests rarely hit. When one exists and the code it covers changed after the commit it records as last in sync, mention `/maintain-formal-verification-skill` if the question touches that code.
 
-When role routing matters, point the user to Plugins → pstack-dsh → Configure. Without an overlay, every role inherits the conversation route.
+When role routing matters, point the user to Plugins → dsh-pstack. Without an overlay, every role inherits the conversation route.
 
 ## Get set up
 
 1. Install the DSH bundle `github:yuanv4/dsh-pstack` through Plugins.
-2. Optionally open Plugins → pstack-dsh → Configure to choose role routes. Without an overlay, roles inherit the conversation route.
+2. Optionally open Plugins → dsh-pstack to choose role routes. Without an overlay, roles inherit the conversation route.
 3. Start a real task with `/poteto-mode`, a goal, and a check that can pass or fail.
 
 Use the `/` menu or `skill` tool to load skills. The [README](../../README.md) and [HARNESS.md](../../HARNESS.md) describe DSH setup. Offer to word the first prompt per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, explain that subagents and review panels use tokens. Use Plugins → pstack-dsh → Configure to choose cheaper routes or fewer panel seats. An unmapped role inherits the conversation route.
+If cost is the worry, explain that subagents and review panels use tokens. Use Plugins → dsh-pstack to choose cheaper routes or fewer panel seats. An unmapped role inherits the conversation route.
 
 pstack runs here as a DSH plugin: the skills load through the `skill` tool or the `/` menu. [HARNESS.md](../../HARNESS.md) maps the Cursor names, and a step that needs a Cursor-only feature, such as Bugbot or Automations, is skipped with a one-line note.
 
@@ -130,7 +130,7 @@ Principles are one-rule skills that `/poteto-mode` reads and cites in its replie
 |---|---|
 | The mode stopped applying after a few turns | Turn the **poteto workflow** row in the model menu on; it applies to every step of the session. |
 | A question got treated as the next step of the last task | Say "new task", or say the turn doesn't need the mode. |
-| A new model choice had no effect | Check the saved role route in Plugins → pstack-dsh → Configure and the current session route. |
+| A new model choice had no effect | Check the saved role route in Plugins → dsh-pstack and the current session route. |
 | Runs cost more than expected | See the cost paragraph under Get set up. |
 | A skill didn't load on its own | Invoke it from the slash menu or load it with the `skill` tool. |
 | Parallel agents overwrote each other | The parent prepares a separate local worktree for each isolated agent and passes its path in the brief. |

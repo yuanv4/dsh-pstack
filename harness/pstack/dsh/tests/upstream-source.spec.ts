@@ -124,11 +124,11 @@ test('committed lock identifies the sole upstream and verifies the committed sna
   verifySnapshot({ lock: committed, root: process.cwd() })
 })
 
-test('repository and installation point at the project without renaming the package', () => {
+test('repository and installation identify the project', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
-  assert.equal(pkg.name, 'pstack-dsh')
-  assert.match(readFileSync('cordis.patch.yml', 'utf8'), /id: pstack-dsh/)
-  assert.match(readFileSync('cordis.patch.yml', 'utf8'), /name: pstack-dsh/)
+  assert.equal(pkg.name, 'dsh-pstack')
+  assert.match(readFileSync('cordis.patch.yml', 'utf8'), /id: dsh-pstack/)
+  assert.match(readFileSync('cordis.patch.yml', 'utf8'), /name: dsh-pstack/)
   assert.equal(pkg.repository.url, 'git+https://github.com/yuanv4/dsh-pstack.git')
   assert.equal(pkg.homepage, 'https://github.com/yuanv4/dsh-pstack')
 })

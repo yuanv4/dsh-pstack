@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "pstack-dsh",
+	id: "dsh-pstack",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -250,10 +250,10 @@ function parseRouteSelectValue(value, live) {
 }
 
 // harness/pstack/dsh/src/ids.ts
-var PLUGIN_ID = "pstack-dsh";
-var SETTINGS_SNAPSHOT_PATH = "/plugins/pstack-dsh/settings";
-var SETTINGS_SAVE_PATH = "/plugins/pstack-dsh/settings";
-var POTETO_STATE_PATH = "/plugins/pstack-dsh/poteto";
+var PLUGIN_ID = "dsh-pstack";
+var SETTINGS_SNAPSHOT_PATH = "/plugins/dsh-pstack/settings";
+var SETTINGS_SAVE_PATH = "/plugins/dsh-pstack/settings";
+var POTETO_STATE_PATH = "/plugins/dsh-pstack/poteto";
 
 // harness/pstack/dsh/src/client/api.ts
 function listenForCatalogChanges(ctx, listener) {
@@ -1073,11 +1073,11 @@ var zh = {
 };
 
 // harness/pstack/dsh/src/client/index.tsx
-var name = "pstack-dsh-client";
+var name = "dsh-pstack-client";
 var inject = ["slots", "locale", "remote"];
 function apply(ctx) {
   const namespace = "settings.pstack";
-  ctx.effect(() => ctx.locale.register(namespace, { zh, en }), "pstack-dsh: editor copy");
+  ctx.effect(() => ctx.locale.register(namespace, { zh, en }), "dsh-pstack: editor copy");
   const t = ctx.locale.bind(namespace);
   const subscribeCatalogChanges = (listener) => listenForCatalogChanges(ctx, listener);
   ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({

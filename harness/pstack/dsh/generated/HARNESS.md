@@ -82,7 +82,7 @@ Precedence follows upstream. An explicit `model` wins, then the role's line, the
 
 ## Enforcement
 
-Upstream gets route compliance from the Cursor harness, where a `Task` call names a model directly. Here a role name is only a request, and the native `subagent` tool ignores it. So the port adds a session switch, borrowed from [l246804/dsh-pstack](https://github.com/l246804/dsh-pstack). The switch is the plugin's only control surface: a row in `conversation.input.model.options` beside DSH's Agent Teams row, whose slot passes the session id to `inject` and which calls `GET`/`POST /plugins/pstack-dsh/poteto`. There is no command and no skill entry point for it.
+Upstream gets route compliance from the Cursor harness, where a `Task` call names a model directly. Here a role name is only a request, and the native `subagent` tool ignores it. So the port adds a session switch, borrowed from [l246804/dsh-pstack](https://github.com/l246804/dsh-pstack). The switch is the plugin's only control surface: a row in `conversation.input.model.options` beside DSH's Agent Teams row, whose slot passes the session id to `inject` and which calls `GET`/`POST /plugins/dsh-pstack/poteto`. There is no command and no skill entry point for it.
 
 - On: `agent.ctx.tools.restrict({ deny })` withholds the native `subagent` and `subagent_fork` tools for that agent, so `pstack_spawn` is the only delegation path left.
 - On: `skills/poteto-mode/SKILL.md` joins that session's system prompt as `pstack:poteto-workflow`. A section registered through `agent.ctx` is assembled for every step, so the text is present without a separate skill invocation.

@@ -3,8 +3,8 @@ import { defineTool } from "@deepseek-ai/dsh-tools";
 import { snapshotJsonValue } from "@deepseek-ai/dsh-util-values";
 
 // harness/pstack/dsh/src/ids.ts
-var PLUGIN_ID = "pstack-dsh";
-var SKILL_PROVIDER_NAME = "pstack-dsh";
+var PLUGIN_ID = "dsh-pstack";
+var SKILL_PROVIDER_NAME = "dsh-pstack";
 var OVERLAY_FILENAME = "pstack-dsh.json";
 var TOOL_CATALOG = "pstack_catalog";
 var TOOL_SPAWN = "pstack_spawn";
@@ -13,14 +13,14 @@ var TOOL_OVERLAY_READ = "pstack_overlay_read";
 var TOOL_OVERLAY_WRITE = "pstack_overlay_write";
 var PSTACK_TOOLS = [TOOL_CATALOG, TOOL_OVERLAY_READ, TOOL_OVERLAY_WRITE, TOOL_SPAWN, TOOL_INTERRUPT];
 var SPAWN_PROVIDER = "spawn";
-var SETTINGS_SNAPSHOT_PATH = "/plugins/pstack-dsh/settings";
-var POTETO_STATE_PATH = "/plugins/pstack-dsh/poteto";
+var SETTINGS_SNAPSHOT_PATH = "/plugins/dsh-pstack/settings";
+var POTETO_STATE_PATH = "/plugins/dsh-pstack/poteto";
 
 // harness/pstack/dsh/src/plugin-config.ts
 var Config = {
   "~standard": {
     version: 1,
-    vendor: "pstack-dsh",
+    vendor: "dsh-pstack",
     validate(value) {
       if (value === void 0 || value === null) {
         return { value: { spawnProvider: "spawn" } };
@@ -309,16 +309,16 @@ function parseOverlay(text) {
   try {
     value = JSON.parse(text);
   } catch {
-    throw new Error("pstack-dsh overlay is not valid JSON");
+    throw new Error("dsh-pstack overlay is not valid JSON");
   }
-  if (!isRecord(value)) throw new Error("pstack-dsh overlay must be an object");
+  if (!isRecord(value)) throw new Error("dsh-pstack overlay must be an object");
   if (value.version !== OVERLAY_VERSION) {
-    throw new Error(`pstack-dsh overlay version ${String(value.version)} is unsupported`);
+    throw new Error(`dsh-pstack overlay version ${String(value.version)} is unsupported`);
   }
   const extra = Object.keys(value).filter((key) => key !== "version" && key !== "roles");
-  if (extra.length > 0) throw new Error(`pstack-dsh overlay has unknown fields: ${extra.join(", ")}`);
+  if (extra.length > 0) throw new Error(`dsh-pstack overlay has unknown fields: ${extra.join(", ")}`);
   const rolesRaw = value.roles;
-  if (!isRecord(rolesRaw)) throw new Error("pstack-dsh overlay.roles must be an object");
+  if (!isRecord(rolesRaw)) throw new Error("dsh-pstack overlay.roles must be an object");
   const roles = {};
   for (const role of ALL_ROLES) roles[role] = { inherit: true, routes: [] };
   for (const [rawKey, rawValue] of Object.entries(rolesRaw)) {
@@ -990,7 +990,7 @@ function registerPstackPotetoRoutes(ctx, switchApi) {
     return () => {
       for (const dispose of routes) dispose();
     };
-  }, "pstack-dsh: poteto switch route");
+  }, "dsh-pstack: poteto switch route");
 }
 
 // harness/pstack/dsh/src/settings-draft.ts
@@ -1134,7 +1134,7 @@ function registerPstackSettingsRoutes(ctx, host) {
     return () => {
       for (const dispose of routes) dispose();
     };
-  }, "pstack-dsh: Settings overlay routes");
+  }, "dsh-pstack: Settings overlay routes");
 }
 
 // harness/pstack/dsh/src/index.ts
@@ -1169,7 +1169,7 @@ function registerOne(ctx, tool) {
   }));
 }
 function apply(ctx, config) {
-  console.log("[my-plugins/pstack-dsh] loaded");
+  console.log("[my-plugins/dsh-pstack] loaded");
   const host = asHost(ctx, config);
   registerOne(ctx, catalogTool(host));
   registerOne(ctx, overlayReadTool(host));

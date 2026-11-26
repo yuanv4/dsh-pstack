@@ -1,5 +1,5 @@
 {
-  "name": "pstack-dsh",
+  "name": "dsh-pstack",
   "description": "DeepSeek Harness adaptation of poteto's pstack. Skills and agents are generated from cursor/plugins; only the harness call layer is this repo's own code.",
   "version": "0.3.0",
   "license": "MIT",

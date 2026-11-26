@@ -31,7 +31,7 @@ const { writeFileSync } = await import('node:fs')
 const { readFileSync } = await import('node:fs')
 const source = readFileSync('harness/pstack/dsh/dist/client.cjs', 'utf8')
 writeFileSync('harness/pstack/dsh/dist/client.js', `window.__ModuleLoader__.load({
-	id: "pstack-dsh",
+	id: "dsh-pstack",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;

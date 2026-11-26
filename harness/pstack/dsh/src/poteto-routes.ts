@@ -65,5 +65,5 @@ export function registerPstackPotetoRoutes(ctx: Context, switchApi: PotetoSwitch
     return () => {
       for (const dispose of routes) dispose()
     }
-  }, 'pstack-dsh: poteto switch route')
+  }, 'dsh-pstack: poteto switch route')
 }

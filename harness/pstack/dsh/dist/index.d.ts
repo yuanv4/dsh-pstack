@@ -27,7 +27,7 @@ declare const Config: {
 };
 //#endregion
 //#region src/index.d.ts
-declare const name = "pstack-dsh";
+declare const name = "dsh-pstack";
 declare const inject: string[];
 declare function apply(ctx: Context, config?: Config): void;
 //#endregion

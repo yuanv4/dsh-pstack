@@ -11,7 +11,7 @@ export interface Config {
 export const Config = {
   '~standard': {
     version: 1 as const,
-    vendor: 'pstack-dsh',
+    vendor: 'dsh-pstack',
     validate(value: unknown) {
       if (value === undefined || value === null) {
         return { value: { spawnProvider: 'spawn' } }

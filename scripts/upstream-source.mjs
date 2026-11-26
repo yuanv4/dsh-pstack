@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve, relative, sep } from 'node:path'
 
-const headers = { 'user-agent': 'pstack-dsh-sync' }
+const headers = { 'user-agent': 'dsh-pstack-sync' }
 const extraFiles = ['pstack/README.md', 'pstack/LICENSE', 'pstack/plugin.json']
 const extraTrees = ['pstack/docs/harness']
 const trees = [

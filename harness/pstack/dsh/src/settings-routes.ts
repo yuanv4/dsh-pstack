@@ -63,5 +63,5 @@ export function registerPstackSettingsRoutes(ctx: Context, host: CatalogHost): v
     return () => {
       for (const dispose of routes) dispose()
     }
-  }, 'pstack-dsh: Settings overlay routes')
+  }, 'dsh-pstack: Settings overlay routes')
 }

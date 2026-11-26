@@ -20,12 +20,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-export const name = 'pstack-dsh-client'
+export const name = 'dsh-pstack-client'
 export const inject = ['slots', 'locale', 'remote']
 
 export function apply(ctx: Context): void {
   const namespace = 'settings.pstack'
-  ctx.effect(() => ctx.locale.register(namespace, { zh, en }), 'pstack-dsh: editor copy')
+  ctx.effect(() => ctx.locale.register(namespace, { zh, en }), 'dsh-pstack: editor copy')
   const t: PstackSettingsInjected['t'] = ctx.locale.bind(namespace)
   const subscribeCatalogChanges: PstackSettingsInjected['subscribeCatalogChanges'] = listener =>
     listenForCatalogChanges(ctx, listener)

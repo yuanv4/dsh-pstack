@@ -84,16 +84,16 @@ export function parseOverlay(text: string): Overlay {
   try {
     value = JSON.parse(text) as unknown
   } catch {
-    throw new Error('pstack-dsh overlay is not valid JSON')
+    throw new Error('dsh-pstack overlay is not valid JSON')
   }
-  if (!isRecord(value)) throw new Error('pstack-dsh overlay must be an object')
+  if (!isRecord(value)) throw new Error('dsh-pstack overlay must be an object')
   if (value.version !== OVERLAY_VERSION) {
-    throw new Error(`pstack-dsh overlay version ${String(value.version)} is unsupported`)
+    throw new Error(`dsh-pstack overlay version ${String(value.version)} is unsupported`)
   }
   const extra = Object.keys(value).filter(key => key !== 'version' && key !== 'roles')
-  if (extra.length > 0) throw new Error(`pstack-dsh overlay has unknown fields: ${extra.join(', ')}`)
+  if (extra.length > 0) throw new Error(`dsh-pstack overlay has unknown fields: ${extra.join(', ')}`)
   const rolesRaw = value.roles
-  if (!isRecord(rolesRaw)) throw new Error('pstack-dsh overlay.roles must be an object')
+  if (!isRecord(rolesRaw)) throw new Error('dsh-pstack overlay.roles must be an object')
   const roles: Record<string, OverlayRole> = {}
   for (const role of ALL_ROLES) roles[role] = { inherit: true, routes: [] }
   // Older files named the retired port roles and hyphenated panel names. Migrate
