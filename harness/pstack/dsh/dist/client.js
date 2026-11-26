@@ -320,46 +320,72 @@ var DESCRIPTION_KEY = {
   "interrogate reviewers": "descInterrogateReviewers"
 };
 var SETTINGS_CSS = `
-.pstack-page { display:flex; flex-direction:column; gap:16px; width:100%; max-width:760px; color:var(--dsw-alias-label-primary); }
+.pstack-page {
+  display:flex; flex-direction:column; gap:24px; width:100%; max-width:960px;
+  font-family:var(--dsw-font-family); color:var(--dsw-alias-label-primary);
+}
 
+.pstack-section { display:flex; flex-direction:column; gap:12px; }
 .pstack-head { display:flex; flex-direction:column; gap:4px; }
 .pstack-section-head { display:flex; align-items:baseline; gap:10px; }
 .pstack-section-title { margin:0; font-size:14px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
 .pstack-section-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-secondary); font-variant-numeric:tabular-nums; }
-.pstack-intro { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
+.pstack-intro { margin:0; font-size:13px; line-height:20px; color:var(--dsw-alias-label-tertiary); }
 
 .pstack-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-.pstack-search { position:relative; display:flex; flex:1 1 180px; align-items:center; min-width:120px; color:var(--dsw-alias-label-tertiary); }
+.pstack-search { position:relative; display:flex; flex:1 1 200px; align-items:center; min-width:140px; color:var(--dsw-alias-label-tertiary); }
 .pstack-search > svg { position:absolute; left:10px; pointer-events:none; }
 .pstack-search input {
   box-sizing:border-box; width:100%; height:32px; padding:0 10px 0 32px;
   border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md);
-  background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-primary);
-  font:inherit; font-size:13px; line-height:22px;
+  background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary);
+  font-family:inherit; font-size:13px; line-height:20px;
+  transition:border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 .pstack-search input::placeholder { color:var(--dsw-alias-label-dimmed); }
 .pstack-search input:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
+.pstack-search input:focus-visible {
+  outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset:1px;
+}
 
+.pstack-select-wrap { position:relative; display:inline-flex; align-items:center; width:100%; min-width:0; }
+.pstack-select-wrap--auto { flex:0 1 220px; width:auto; min-width:160px; max-width:240px; }
+.pstack-select-chevron {
+  position:absolute; right:8px; pointer-events:none; color:var(--dsw-alias-label-tertiary);
+  transition:color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
+}
 .pstack-select {
-  box-sizing:border-box; width:100%; height:32px; min-width:0; padding:0 8px;
+  box-sizing:border-box; appearance:none; width:100%; height:32px; min-width:0; padding:0 28px 0 10px;
   border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md);
-  background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-primary);
-  font:inherit; font-size:13px; line-height:22px;
+  background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary);
+  font-family:inherit; font-size:13px; line-height:20px; cursor:pointer;
+  text-overflow:ellipsis;
+  transition:border-color var(--ds-transition-duration-fast) var(--ds-ease-in-out), background var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 .pstack-select:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
-.pstack-select:disabled { opacity:.6; cursor:default; }
-.pstack-select--auto { flex:0 1 200px; width:auto; max-width:200px; }
+.pstack-select:focus-visible {
+  outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset:1px;
+}
+.pstack-select:disabled { opacity:.5; color:var(--dsw-alias-label-tertiary); cursor:default; }
+.pstack-select:disabled + .pstack-select-chevron { opacity:.5; }
+@media (hover:hover) {
+  .pstack-search input:hover:not(:focus) { border-color:var(--dsw-alias-border-selected); }
+  .pstack-select:hover:not(:disabled):not(:focus) {
+    background:var(--dsw-alias-interactive-bg-hover); border-color:var(--dsw-alias-border-selected);
+  }
+}
 
-.pstack-defaults { display:flex; flex-direction:column; gap:8px; }
-.pstack-default-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.pstack-default-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; padding:12px 16px; }
 .pstack-default-text { display:flex; flex:1 1 220px; flex-direction:column; gap:2px; min-width:0; }
-.pstack-default-label { font-size:13px; line-height:18px; font-weight:500; color:var(--dsw-alias-label-primary); }
+.pstack-default-label { font-size:13px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
 .pstack-default-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 
 .pstack-group { display:flex; flex-direction:column; gap:8px; }
-.pstack-group-head { display:flex; align-items:baseline; gap:8px; }
+.pstack-group-head { display:flex; align-items:baseline; gap:10px; }
 .pstack-group-title { margin:0; font-size:14px; line-height:20px; font-weight:500; color:var(--dsw-alias-label-primary); }
-.pstack-group-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); font-variant-numeric:tabular-nums; }
+.pstack-group-count { font-size:12px; line-height:18px; color:var(--dsw-alias-label-secondary); font-variant-numeric:tabular-nums; }
 .pstack-hint { margin:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 
 .pstack-card {
@@ -369,23 +395,23 @@ var SETTINGS_CSS = `
 .pstack-card > * + * { border-top:0.5px solid var(--dsw-alias-border-l2); }
 
 .pstack-row {
-  display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,290px) minmax(96px,104px);
-  gap:10px; align-items:center; padding:8px 14px;
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(200px,320px) minmax(116px,136px);
+  gap:12px; align-items:center; padding:10px 16px;
 }
-.pstack-id { display:flex; flex-direction:column; gap:1px; min-width:0; }
-.pstack-id-line { display:flex; align-items:baseline; gap:8px; min-width:0; }
+.pstack-id { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.pstack-id-line { display:flex; align-items:center; gap:8px; min-width:0; }
 .pstack-role {
-  min-width:0; font-family:var(--ds-font-family-code); font-size:13px; line-height:18px; font-weight:500;
+  min-width:0; font-family:var(--ds-font-family-code); font-size:13px; line-height:20px; font-weight:500;
   color:var(--dsw-alias-label-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.pstack-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pstack-desc { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 .pstack-spacer { min-height:1px; }
 .pstack-inline { display:flex; align-items:center; gap:8px; min-width:0; }
 
-.pstack-panel-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 14px; }
-.pstack-panel-body { display:flex; flex-direction:column; gap:8px; margin:0 14px 12px; padding:12px; border-radius:var(--dsw-radius-lg); background:var(--dsw-alias-bg-module-platform); }
+.pstack-panel-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:10px 16px; }
+.pstack-panel-body { display:flex; flex-direction:column; gap:8px; margin:0 16px 14px; padding:12px; border-radius:var(--dsw-radius-md); background:var(--dsw-alias-bg-module-platform); }
 .pstack-panel-body > .pstack-add { align-self:flex-start; }
-.pstack-route-row { display:grid; grid-template-columns:16px minmax(0,1fr) minmax(96px,104px) auto; gap:8px; align-items:center; }
+.pstack-route-row { display:grid; grid-template-columns:18px minmax(0,1fr) minmax(116px,136px) auto; gap:8px; align-items:center; }
 .pstack-index { font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); text-align:right; font-variant-numeric:tabular-nums; }
 /* Later than the shared Button rules and more specific, so the icon-only row action keeps its 28px box. */
 .pstack-remove.pstack-remove { width:28px; min-width:28px; padding:0; color:var(--dsw-alias-label-tertiary); }
@@ -393,22 +419,28 @@ var SETTINGS_CSS = `
   .pstack-remove.pstack-remove:hover:not(:disabled) { background:var(--dsw-alias-interactive-bg-hover-danger); color:var(--dsw-alias-state-error-primary); }
 }
 
-.pstack-foot { display:flex; flex-direction:column; gap:8px; padding-top:16px; }
+.pstack-foot { display:flex; flex-direction:column; gap:8px; padding-top:4px; }
 .pstack-foot-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
 .pstack-status { display:flex; align-items:center; gap:6px; min-width:0; font-size:12px; line-height:18px; color:var(--dsw-alias-label-tertiary); }
 .pstack-status-text { color:var(--dsw-alias-label-secondary); }
 .pstack-foot-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
 
 .pstack-note { margin:0; font-size:13px; line-height:20px; color:var(--dsw-alias-label-tertiary); }
-.pstack-banner { margin:0; border-radius:var(--dsw-radius-lg); padding:8px 10px; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
+.pstack-banner { margin:0; border-radius:var(--dsw-radius-md); padding:8px 12px; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
 .pstack-banner--warn { background:color-mix(in srgb, var(--dsw-alias-state-warn-primary) 8%, transparent); color:var(--dsw-alias-state-warn-label); }
 .pstack-banner--ok { background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent); color:var(--dsw-alias-state-success-primary); }
 .pstack-banner--error { background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
 
+@media (pointer:coarse) {
+  .pstack-search input, .pstack-select { font-size:16px; }
+}
+
 @media (width <= 640px) {
-  .pstack-row { grid-template-columns:1fr; }
-  .pstack-panel-head { grid-template-columns:1fr; }
-  .pstack-route-row { grid-template-columns:minmax(0,1fr) auto auto; }
+  .pstack-row { grid-template-columns:1fr; gap:8px; padding:12px 14px; }
+  .pstack-panel-head { grid-template-columns:1fr; gap:8px; padding:12px 14px; }
+  .pstack-panel-body { margin:0 14px 12px; }
+  .pstack-default-row { padding:12px 14px; }
+  .pstack-route-row { grid-template-columns:minmax(0,1fr) minmax(100px,auto) auto; }
   .pstack-index { display:none; }
 }
 `;
@@ -428,6 +460,9 @@ function SearchIcon() {
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "7", cy: "7", r: "4.25", fill: "none", stroke: "currentColor", strokeWidth: "1.4" }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M10.2 10.2 13.5 13.5", stroke: "currentColor", strokeWidth: "1.4", strokeLinecap: "round" })
   ] });
+}
+function ChevronDownIcon() {
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("svg", { className: "pstack-select-chevron", width: "14", height: "14", viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M4.5 6.25 8 9.75l3.5-3.5", fill: "none", stroke: "currentColor", strokeWidth: "1.4", strokeLinecap: "round", strokeLinejoin: "round" }) });
 }
 function RoleId({
   role,
@@ -455,30 +490,33 @@ function EffortSelect({
 }) {
   const found = liveFor(live, route.provider, route.model);
   if (found === void 0 || found.efforts.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-spacer" });
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-    "select",
-    {
-      id,
-      className: "pstack-select",
-      "aria-label": label,
-      "aria-describedby": describedBy,
-      value: route.reasoningEffort ?? "",
-      disabled,
-      onChange: (event) => {
-        const value = event.target.value;
-        onChange(value.length === 0 ? { provider: route.provider, model: route.model } : { provider: route.provider, model: route.model, reasoningEffort: value });
-      },
-      children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "", children: t("effortOmit") }),
-        route.reasoningEffort !== void 0 && !found.efforts.some((effort) => effort.id === route.reasoningEffort) ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value: route.reasoningEffort, disabled: true, children: [
-          route.reasoningEffort,
-          " \xB7 ",
-          t("unavailable")
-        ] }) : null,
-        found.efforts.map((effort) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: effort.id, children: effort.name || effort.id }, effort.id))
-      ]
-    }
-  );
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-select-wrap", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "select",
+      {
+        id,
+        className: "pstack-select",
+        "aria-label": label,
+        "aria-describedby": describedBy,
+        value: route.reasoningEffort ?? "",
+        disabled,
+        onChange: (event) => {
+          const value = event.target.value;
+          onChange(value.length === 0 ? { provider: route.provider, model: route.model } : { provider: route.provider, model: route.model, reasoningEffort: value });
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "", children: t("effortOmit") }),
+          route.reasoningEffort !== void 0 && !found.efforts.some((effort) => effort.id === route.reasoningEffort) ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value: route.reasoningEffort, disabled: true, children: [
+            route.reasoningEffort,
+            " \xB7 ",
+            t("unavailable")
+          ] }) : null,
+          found.efforts.map((effort) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: effort.id, children: effort.name || effort.id }, effort.id))
+        ]
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ChevronDownIcon, {})
+  ] });
 }
 function RouteSelect({
   id,
@@ -490,36 +528,39 @@ function RouteSelect({
   disabled,
   onChange
 }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-    "select",
-    {
-      id,
-      className: "pstack-select",
-      "aria-label": label,
-      "aria-describedby": describedBy,
-      value,
-      disabled,
-      onChange: (event) => {
-        onChange(event.target.value);
-      },
-      children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "inherit-parent", children: t("inheritParent") }),
-        value !== "inherit-parent" && value !== "auto" && !live.some((route) => routeKey(route.provider, route.model) === value) ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value, disabled: true, children: [
-          value.replace("::", "/"),
-          " \xB7 ",
-          t("unavailable")
-        ] }) : null,
-        live.map((route) => {
-          const key = routeKey(route.provider, route.model);
-          return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value: key, children: [
-            route.provider,
-            "/",
-            route.model
-          ] }, key);
-        })
-      ]
-    }
-  );
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-select-wrap", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "select",
+      {
+        id,
+        className: "pstack-select",
+        "aria-label": label,
+        "aria-describedby": describedBy,
+        value,
+        disabled,
+        onChange: (event) => {
+          onChange(event.target.value);
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "inherit-parent", children: t("inheritParent") }),
+          value !== "inherit-parent" && value !== "auto" && !live.some((route) => routeKey(route.provider, route.model) === value) ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value, disabled: true, children: [
+            value.replace("::", "/"),
+            " \xB7 ",
+            t("unavailable")
+          ] }) : null,
+          live.map((route) => {
+            const key = routeKey(route.provider, route.model);
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value: key, children: [
+              route.provider,
+              "/",
+              route.model
+            ] }, key);
+          })
+        ]
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ChevronDownIcon, {})
+  ] });
 }
 function PstackSettings({ t, subscribeCatalogChanges }) {
   const [drafts, setDrafts] = (0, import_react2.useState)(void 0);
@@ -670,86 +711,21 @@ function PstackSettings({ t, subscribeCatalogChanges }) {
       "aria-busy": busy || refreshing,
       children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: SETTINGS_CSS }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-head", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-section-head", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-section-title", children: t("title") }),
-            drafts === void 0 ? null : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-section-count", children: t("configured", { configured, total }) })
+        drafts === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-section", "aria-label": t("title"), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-head", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-section-head", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-section-title", children: t("title") }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-intro", children: t("intro") })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-intro", children: t("intro") })
-        ] }),
-        drafts === void 0 ? catalogError === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-note", role: "status", "aria-busy": "true", children: t("loading") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: catalogError }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-inline", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Button, { variant: "outline", size: "sm", onClick: () => {
-            void refresh();
-          }, children: t("reload") }) })
+          catalogError === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-note", role: "status", "aria-busy": "true", children: t("loading") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: catalogError }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-inline", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Button, { variant: "outline", size: "sm", onClick: () => {
+              void refresh();
+            }, children: t("reload") }) })
+          ] })
         ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-tools", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-search", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SearchIcon, {}),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                "input",
-                {
-                  type: "search",
-                  placeholder: t("search"),
-                  "aria-label": t("search"),
-                  value: query,
-                  onChange: (event) => setQuery(event.target.value)
-                }
-              )
-            ] }),
-            !empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-              "select",
-              {
-                className: "pstack-select pstack-select--auto",
-                "aria-label": t("applyAll"),
-                defaultValue: "",
-                disabled: busy,
-                onChange: (event) => {
-                  const value = event.target.value;
-                  event.target.value = "";
-                  if (value.length === 0) return;
-                  if (value === "inherit-parent") {
-                    setDrafts((current) => current === void 0 ? current : applyInheritAll(current));
-                    return;
-                  }
-                  const parsed = parseRouteSelectValue(value, live);
-                  if (parsed.inherit) {
-                    setDrafts((current) => current === void 0 ? current : applyInheritAll(current, parsed.inheritChoice));
-                    return;
-                  }
-                  setDrafts((current) => current === void 0 ? current : applyRouteToAll(current, parsed.route, live));
-                },
-                children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "", children: t("applyAll") }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "inherit-parent", children: t("applyAllInherit") }),
-                  live.map((route) => {
-                    const key = routeKey(route.provider, route.model);
-                    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value: key, children: [
-                      route.provider,
-                      "/",
-                      route.model
-                    ] }, key);
-                  })
-                ]
-              }
-            ) : null,
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              import_dsh_client_ui_primitives2.Button,
-              {
-                variant: "outline",
-                size: "sm",
-                title: t("catalogUpdates"),
-                disabled: busy || refreshing,
-                onClick: () => {
-                  void refresh();
-                },
-                children: refreshing ? t("reloading") : t("reload")
-              }
-            )
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-defaults", "aria-label": t("defaultsTitle"), children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-group-title", children: t("defaultsTitle") }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-default-row", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-section", "aria-label": t("defaultsTitle"), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-section-head", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-section-title", children: t("defaultsTitle") }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "pstack-card", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-default-row", children: [
               /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-default-text", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-default-label", children: t("potetoDefaultLabel") }),
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-default-desc", children: t("potetoDefaultDescription") })
@@ -767,11 +743,87 @@ function PstackSettings({ t, subscribeCatalogChanges }) {
                   }
                 }
               )
-            ] })
+            ] }) })
           ] }),
-          catalogError !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: catalogError }) : null,
-          empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--warn", children: t("emptyCatalog") }) : null,
-          dropped.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--warn", children: t("dropped") }) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "pstack-section", "aria-label": t("title"), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-head", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-section-head", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "pstack-section-title", children: t("title") }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "pstack-section-count", children: t("configured", { configured, total }) })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-intro", children: t("intro") })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pstack-tools", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-search", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SearchIcon, {}),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "input",
+                  {
+                    type: "search",
+                    placeholder: t("search"),
+                    "aria-label": t("search"),
+                    value: query,
+                    onChange: (event) => setQuery(event.target.value)
+                  }
+                )
+              ] }),
+              !empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "pstack-select-wrap pstack-select-wrap--auto", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                  "select",
+                  {
+                    className: "pstack-select",
+                    "aria-label": t("applyAll"),
+                    defaultValue: "",
+                    disabled: busy,
+                    onChange: (event) => {
+                      const value = event.target.value;
+                      event.target.value = "";
+                      if (value.length === 0) return;
+                      if (value === "inherit-parent") {
+                        setDrafts((current) => current === void 0 ? current : applyInheritAll(current));
+                        return;
+                      }
+                      const parsed = parseRouteSelectValue(value, live);
+                      if (parsed.inherit) {
+                        setDrafts((current) => current === void 0 ? current : applyInheritAll(current, parsed.inheritChoice));
+                        return;
+                      }
+                      setDrafts((current) => current === void 0 ? current : applyRouteToAll(current, parsed.route, live));
+                    },
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "", children: t("applyAll") }),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: "inherit-parent", children: t("applyAllInherit") }),
+                      live.map((route) => {
+                        const key = routeKey(route.provider, route.model);
+                        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("option", { value: key, children: [
+                          route.provider,
+                          "/",
+                          route.model
+                        ] }, key);
+                      })
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ChevronDownIcon, {})
+              ] }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                import_dsh_client_ui_primitives2.Button,
+                {
+                  variant: "outline",
+                  size: "sm",
+                  title: t("catalogUpdates"),
+                  disabled: busy || refreshing,
+                  onClick: () => {
+                    void refresh();
+                  },
+                  children: refreshing ? t("reloading") : t("reload")
+                }
+              )
+            ] }),
+            catalogError !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--error", role: "alert", children: catalogError }) : null,
+            empty ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--warn", children: t("emptyCatalog") }) : null,
+            dropped.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "pstack-banner pstack-banner--warn", children: t("dropped") }) : null
+          ] }),
           GROUPS.map((group) => {
             const roles = group.roles.filter(matches);
             if (roles.length === 0) return null;
